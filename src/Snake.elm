@@ -57,6 +57,7 @@ initialModel =
 
 type Msg
     = Dir Direction
+    | Click Int
     | Tick
     | Pause
     | Ate Point
@@ -273,6 +274,8 @@ generatePitchPoints n m =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Click _ ->
+            ( { model | state = Running Down }, Cmd.none )
         Dir d ->
             ( { model | state = Running d }, Cmd.none )
 
@@ -307,14 +310,14 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ Html.Attributes.style "width" "35%", Html.Attributes.style "margin-right" "auto", Html.Attributes.style "margin-left" "auto", Html.Attributes.style "margin-top" "1%" ]
+    div [ onClick (Click 1), Html.Attributes.style "width" "35%", Html.Attributes.style "margin-right" "auto", Html.Attributes.style "margin-left" "auto", Html.Attributes.style "margin-top" "1%" ]
         [ div [ Html.Attributes.style "height" "250px" ]
-            [ -- Html.button [ onClick (Dir Up) ] [ Html.text "Up" ]
+            [ Html.button [ onClick (Click 5) ] [ Html.text "Up" ]
               -- , Html.button [ onClick (Dir Left) ] [ Html.text "Left" ]
               -- , Html.button [ onClick (Dir Right) ] [ Html.text "Right" ]
               -- , Html.button [ onClick (Dir Down) ] [ Html.text "Down" ]
               --, Html.button [ onClick Extend ] [ Html.text "Extend" ]
-              Html.text ("Score: " ++ String.fromInt (Lists.length (NELists.toList model.snake)) ++ ", control snake with arrow keys")
+            , Html.text ("Score: " ++ String.fromInt (Lists.length (NELists.toList model.snake)) ++ ", control snake with arrow keys")
             , div []
                 [ svg
                     [ viewBox "0 0 600 600"
