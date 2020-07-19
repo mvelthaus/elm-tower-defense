@@ -61,7 +61,7 @@ indexedMap : (Int -> a -> b) -> List a -> List b
 indexedMap f l =
     let
         countedMapLocal c =
-            foldl (\x ( r, s ) -> ( f s x :: r, s + 1 )) ( [], c ) l
+            List.foldl (\x ( r, s ) -> ( f s x :: r, s + 1 )) ( [], c ) l
     in
     Tuple.first (countedMapLocal 0)
 
@@ -72,7 +72,7 @@ indexedMap f l =
 
 snoc : List a -> a -> List a
 snoc l x =
-    foldr (\y r -> y :: r) [ x ] l
+    List.foldr (\y r -> y :: r) [ x ] l
 
 
 
@@ -81,7 +81,7 @@ snoc l x =
 
 any : (a -> Bool) -> List a -> Bool
 any p l =
-    foldl (\x r -> p x || r) False l
+    List.foldl (\x r -> p x || r) False l
 
 
 length : List a -> Int
@@ -92,23 +92,3 @@ length l =
 
         _ :: xs ->
             1 + length xs
-
-
-foldr : (a -> b -> b) -> b -> List a -> b
-foldr f e l =
-    case l of
-        [] ->
-            e
-
-        x :: xs ->
-            f x (foldr f e xs)
-
-
-foldl : (a -> b -> b) -> b -> List a -> b
-foldl f e l =
-    case l of
-        [] ->
-            e
-
-        x :: xs ->
-            foldl f (f x e) xs
