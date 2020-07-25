@@ -1,37 +1,34 @@
 module TowerDefense exposing (main)
 
+import Bots exposing (Bot, Direction, createBot, move)
 import Browser
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import Lists exposing (any)
+import Points exposing (Point, getX, getY)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (onClick)
-import Browser exposing (element)
+import Time exposing (every)
 
-
-type Point
-    = Point Int Int
-
-getX : Point -> Int
-getX (Point x _) =
-    x
-
-getY : Point -> Int
-getY (Point _ y) =
-    y
 
 type alias PitchElement =
-    {position : Point
+    { position : Point
     , color : String
-    , hasTower : Bool
     }
+
+
+botSpeed : Float
+botSpeed =
+    50
 
 
 type Msg
     = Click Point
-    -- | MouseOver Point
-    -- | MouseOut Point
+    | MouseOver Point
+    | MouseOut Point
+    | Tick
 
 
 type State
@@ -44,27 +41,26 @@ type alias Playground =
     List PitchElement
 
 
-type alias Bots =
-    List Point
-
-
 type alias Model =
-    { playground : Playground
-    , bots : Bots
+    { selectionLayer : Playground
+    , towerLayer : Playground
+    , cash : Int
+    , health : Int
+    , bots : List Bots.Bot
     , state : State
     }
 
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { playground = buildPitch width height, bots = List.repeat 1 (Point 0 0), state = Running }, Cmd.none )
+    ( { selectionLayer = buildPitch width height, towerLayer = [], cash = 100, health = 10, bots = [ createBot (Points.Point 0 (height * elementSize // 2)) ], state = Running }, Cmd.none )
 
 
 buildPitch : Int -> Int -> Playground
 buildPitch w h =
     let
         buildRows row =
-            if row > 0 then
+            if row >= 0 then
                 buildRow w row ++ buildRows (row - 1)
 
             else
@@ -75,8 +71,8 @@ buildPitch w h =
 
 buildRow : Int -> Int -> List PitchElement
 buildRow column row =
-    if column > 0 then
-        {position = Point column row, color = defaultColor, hasTower = False} :: buildRow (column - 1) row
+    if column >= 0 then
+        { position = Points.Point column row, color = defaultColor } :: buildRow (column - 1) row
 
     else
         []
@@ -84,17 +80,17 @@ buildRow column row =
 
 elementSize : Int
 elementSize =
-    20
+    10
 
 
 width : Int
 width =
-    20
+    30
 
 
 height : Int
 height =
-    15
+    20
 
 
 defaultColor : String
@@ -102,42 +98,129 @@ defaultColor =
     "lightgrey"
 
 
-segmentColor : Int -> String
-segmentColor n =
-    hsl (30 * n) 100 40
+hoverColor : String
+hoverColor =
+    "grey"
 
 
-hsl : Int -> Int -> Int -> String
-hsl h s l =
-    "hsl(" ++ String.fromInt h ++ " ," ++ String.fromInt s ++ "% ," ++ String.fromInt l ++ "%)"
+moveBots : List Bot -> Playground -> List Bot
+moveBots bots towers =
+    case bots of
+        x :: xs ->
+            move (collision x towers) x :: moveBots xs towers
+
+        [] ->
+            []
+
+
+collision : Bot -> Playground -> Direction
+collision bot towers =
+    if towerCollision bot towers then
+        Bots.Up
+
+    else
+        borderCollision bot
+
+
+towerCollision : Bot -> Playground -> Bool
+towerCollision bot towers =
+    Lists.any (\p -> isInside bot.position p) towers
 
 
 
--- playgroundToSvg : Playground -> List (Svg Msg)
--- playgroundToSvg playground =
---     case playground of
---         NELists.Head x xs ->
---             drawRect x "white" :: playgroundToSvg xs
---         NELists.Head x [] ->
---             []
+-- case towers of
+--     x :: xs ->
+--         if isInside bot.position x then
+--             True
+--         else
+--             towerCollision bot xs
+--     [] ->
+--         False
 
 
-pitchToSvg : Playground -> List (Svg Msg)
-pitchToSvg l =
-    List.map drawRect l
+isInside : Point -> PitchElement -> Bool
+isInside p { position } =
+    getX p >= getX position * elementSize && getY p >= getY position * elementSize && getX p <= getX position * elementSize + elementSize && getY p <= getY position * elementSize + elementSize
+
+
+borderCollision : Bot -> Direction
+borderCollision { direction, position } =
+    if getY position <= 0 || getY position >= height * elementSize then
+        Bots.Right
+
+    else if getX position >= width * elementSize then
+        Bots.Left
+    else
+        direction
+
+
+mark : Point -> String -> List PitchElement -> List PitchElement
+mark p c l =
+    case l of
+        x :: xs ->
+            if x.position == p then
+                { x | color = c } :: mark p c xs
+
+            else
+                x :: mark p c xs
+
+        [] ->
+            []
+
+
+createTower : Point -> List PitchElement -> List PitchElement
+createTower p l =
+    case l of
+        x :: xs ->
+            if x.position == p then
+                { x | color = "red" } :: createTower p xs
+
+            else
+                createTower p xs
+
+        [] ->
+            []
+
+
+pitchToSvg : Playground -> Playground -> List Bot -> List (Svg Msg)
+pitchToSvg selection tower bot =
+    List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
 
 
 drawRect : PitchElement -> Svg Msg
-drawRect {position, color} =
+drawRect { position, color } =
     rect
         [ Svg.Events.onClick (Click position)
-        -- , Svg.Events.onMouseOut (MouseOut position)
-        -- , Svg.Events.onMouseOver (MouseOver position)
-        , Svg.Attributes.style "border: 1px solid white"
+        , Svg.Events.onMouseOut (MouseOut position)
+        , Svg.Events.onMouseOver (MouseOver position)
         , x (String.fromInt (getX position * elementSize))
         , y (String.fromInt (getY position * elementSize))
         , Svg.Attributes.width (String.fromInt elementSize)
         , Svg.Attributes.height (String.fromInt elementSize)
+        , fill color
+        , fillOpacity "0.3"
+        ]
+        []
+
+
+drawTower : PitchElement -> Svg Msg
+drawTower { position, color } =
+    rect
+        [ x (String.fromInt (getX position * elementSize))
+        , y (String.fromInt (getY position * elementSize))
+        , Svg.Attributes.width (String.fromInt elementSize)
+        , Svg.Attributes.height (String.fromInt elementSize)
+        , fill color
+        ]
+        []
+
+
+drawBot : Bot -> Svg Msg
+drawBot { position, color } =
+    circle
+        [ cx (String.fromInt (getX position))
+        , cy (String.fromInt (getY position))
+        , Svg.Attributes.r (String.fromFloat (toFloat elementSize * 0.2))
         , fill color
         ]
         []
@@ -147,44 +230,38 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click pos ->
-            ( { model | playground = mark pos "red" model.playground }, Cmd.none )
-
-        -- MouseOver pos ->
-        --     ( { model | playground = mark pos "grey" model.playground }, Cmd.none )
-
-        -- MouseOut pos ->
-        --     ( { model | playground = mark pos defaultColor model.playground }, Cmd.none )
-
-
-
-mark : Point -> String -> List PitchElement -> List PitchElement
-mark p c l =
-    case l of
-        element :: xs ->
-            if element.position == p then
-                {element | color = c} :: mark p c xs
+            if model.cash >= 10 then
+                ( { model | towerLayer = model.towerLayer ++ createTower pos model.selectionLayer, cash = model.cash - 10 }, Cmd.none )
 
             else
-                element :: mark p c xs
+                ( model, Cmd.none )
 
-        [] ->
-            []
+        MouseOver pos ->
+            ( { model | selectionLayer = mark pos hoverColor model.selectionLayer }, Cmd.none )
+
+        MouseOut pos ->
+            ( { model | selectionLayer = mark pos defaultColor model.selectionLayer }, Cmd.none )
+
+        Tick ->
+            ( { model | bots = moveBots model.bots model.towerLayer }, Cmd.none )
 
 
 view : Model -> Html Msg
 view model =
-    div [ {- onClick (Click 1), -} Html.Attributes.style "width" "35%", Html.Attributes.style "margin-right" "auto", Html.Attributes.style "margin-left" "auto", Html.Attributes.style "margin-top" "1%" ]
+    div [ Html.Attributes.style "width" "60%", Html.Attributes.style "margin-right" "auto", Html.Attributes.style "margin-left" "auto" ]
         [ div [ Html.Attributes.style "height" "250px" ]
             [ {- Html.button [ onClick (Click 5) ] [ Html.text "Up" ] -}
               -- , Html.button [ onClick (Dir Left) ] [ Html.text "Left" ]
               -- , Html.button [ onClick (Dir Right) ] [ Html.text "Right" ]
               -- , Html.button [ onClick (Dir Down) ] [ Html.text "Down" ]
               --, Html.button [ onClick Extend ] [ Html.text "Extend" ]
-              div []
+              Html.text ("Cash: " ++ String.fromInt model.cash)
+            , Html.text (" Health: " ++ String.fromInt model.health)
+            , div []
                 [ svg
                     [ viewBox (String.concat [ "0 0 ", String.fromInt (width * elementSize), " ", String.fromInt (height * elementSize) ])
                     ]
-                    (pitchToSvg model.playground)
+                    (pitchToSvg model.selectionLayer model.towerLayer model.bots)
                 ]
             ]
 
@@ -194,7 +271,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch []
+    Sub.batch [ Time.every botSpeed (\_ -> Tick) ]
 
 
 main : Program () Model Msg
