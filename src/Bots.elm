@@ -6,13 +6,15 @@ type alias Bot =
     {position : Point
     , direction : Direction
     , color : String
-    , health : Int}
+    , health : Int
+    , collided : Bool}
 
 type Direction
     = Right
     | Left
     | Up
     | Down
+    | Stop
 
 moveStep : Int
 moveStep =
@@ -31,12 +33,12 @@ initMoveArea length y=
 
 createBot : Point -> Bot
 createBot start =
-    {position = start, direction = Right, color = "black", health = 10}
+    {position = start, direction = Right, color = "black", health = 10, collided = False}
 
 
-move : Direction -> Bot -> Bot
-move d bot =
-    case d of
+move : Bot -> Bot
+move bot =
+    case bot.direction of
         Right ->
             {bot | position = Points.Point (getX bot.position + moveStep) (getY bot.position)}
         Left ->
@@ -45,3 +47,5 @@ move d bot =
             {bot | position = Points.Point (getX bot.position) (getY bot.position - moveStep)}
         Down ->
             {bot | position = Points.Point (getX bot.position) (getY bot.position + moveStep)}
+        Stop ->
+            bot

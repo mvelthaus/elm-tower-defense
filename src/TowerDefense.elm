@@ -21,7 +21,22 @@ type alias PitchElement =
 
 botSpeed : Float
 botSpeed =
-    50
+    30
+
+
+spawnRate : Float
+spawnRate =
+    10000
+
+
+spawnPoint : Point
+spawnPoint =
+    Points.Point 0 (height * elementSize // 2)
+
+
+collidingOffset : Int
+collidingOffset =
+    4
 
 
 type Msg
@@ -29,6 +44,7 @@ type Msg
     | MouseOver Point
     | MouseOut Point
     | Tick
+    | Spawn
 
 
 type State
@@ -53,7 +69,7 @@ type alias Model =
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { selectionLayer = buildPitch width height, towerLayer = [], cash = 100, health = 10, bots = [ createBot (Points.Point 0 (height * elementSize // 2)) ], state = Running }, Cmd.none )
+    ( { selectionLayer = buildPitch width height, towerLayer = [], cash = 1000, health = 10, bots = [ createBot spawnPoint ], state = Running }, Cmd.none )
 
 
 buildPitch : Int -> Int -> Playground
@@ -88,9 +104,24 @@ width =
     30
 
 
+widthInPixels : Int
+widthInPixels =
+    toPixels width
+
+
 height : Int
 height =
     20
+
+
+heightInPixels : Int
+heightInPixels =
+    toPixels height
+
+
+toPixels : Int -> Int
+toPixels x =
+    x * elementSize
 
 
 defaultColor : String
@@ -103,55 +134,78 @@ hoverColor =
     "grey"
 
 
+towerColor : String
+towerColor =
+    "red"
+
+
 moveBots : List Bot -> Playground -> List Bot
 moveBots bots towers =
     case bots of
         x :: xs ->
-            move (collision x towers) x :: moveBots xs towers
+            if collisionEnd x then
+                moveBots xs towers
+
+            else
+                move (collision x towers) :: moveBots xs towers
 
         [] ->
             []
 
 
-collision : Bot -> Playground -> Direction
+collision : Bot -> Playground -> Bot
 collision bot towers =
     if towerCollision bot towers then
-        Bots.Up
+        if bot.collided then
+            if getY bot.position <= 0 + collidingOffset then
+                { bot | direction = Bots.Down }
+
+            else if getY bot.position >= heightInPixels - collidingOffset then
+                { bot | direction = Bots.Up }
+
+            else
+                bot
+
+        else if getY bot.position > heightInPixels // 2 then
+            { bot | direction = Bots.Up, collided = True }
+
+        else
+            { bot | direction = Bots.Down, collided = True }
 
     else
-        borderCollision bot
+        { bot | direction = Bots.Right, collided = False }
+
+
+collisionEnd : Bot -> Bool
+collisionEnd b =
+    getX b.position > widthInPixels
 
 
 towerCollision : Bot -> Playground -> Bool
 towerCollision bot towers =
-    Lists.any (\p -> isInside bot.position p) towers
+    Lists.any (\p -> isInside p.position bot.position) towers
 
 
-
--- case towers of
---     x :: xs ->
---         if isInside bot.position x then
---             True
---         else
---             towerCollision bot xs
---     [] ->
---         False
+isInside : Point -> Point -> Bool
+isInside towerPos botPos =
+    isBetween (getX towerPos) (getX botPos) && isBetween (getY towerPos) (getY botPos)
 
 
-isInside : Point -> PitchElement -> Bool
-isInside p { position } =
-    getX p >= getX position * elementSize && getY p >= getY position * elementSize && getX p <= getX position * elementSize + elementSize && getY p <= getY position * elementSize + elementSize
+isBetween : Int -> Int -> Bool
+isBetween x i =
+    i >= toPixels x - collidingOffset && i <= toPixels x + elementSize + collidingOffset
 
 
 borderCollision : Bot -> Direction
-borderCollision { direction, position } =
-    if getY position <= 0 || getY position >= height * elementSize then
-        Bots.Right
+borderCollision bot =
+    if getY bot.position <= 0 then
+        Bots.Down
 
-    else if getX position >= width * elementSize then
-        Bots.Left
+    else if getY bot.position >= heightInPixels then
+        Bots.Up
+
     else
-        direction
+        bot.direction
 
 
 mark : Point -> String -> List PitchElement -> List PitchElement
@@ -173,7 +227,7 @@ createTower p l =
     case l of
         x :: xs ->
             if x.position == p then
-                { x | color = "red" } :: createTower p xs
+                { x | color = towerColor } :: createTower p xs
 
             else
                 createTower p xs
@@ -230,7 +284,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click pos ->
-            if model.cash >= 10 then
+            if model.cash >= 10 && Lists.any (\p -> pos == p.position && p.color == towerColor) model.towerLayer == False then
                 ( { model | towerLayer = model.towerLayer ++ createTower pos model.selectionLayer, cash = model.cash - 10 }, Cmd.none )
 
             else
@@ -243,7 +297,14 @@ update msg model =
             ( { model | selectionLayer = mark pos defaultColor model.selectionLayer }, Cmd.none )
 
         Tick ->
-            ( { model | bots = moveBots model.bots model.towerLayer }, Cmd.none )
+            if Lists.any (\p -> getX p.position > widthInPixels) model.bots then
+                ( { model | health = model.health - 1, bots = moveBots model.bots model.towerLayer }, Cmd.none )
+
+            else
+                ( { model | bots = moveBots model.bots model.towerLayer }, Cmd.none )
+
+        Spawn ->
+            ( { model | bots = createBot spawnPoint :: model.bots }, Cmd.none )
 
 
 view : Model -> Html Msg
@@ -271,7 +332,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ Time.every botSpeed (\_ -> Tick) ]
+    Sub.batch [ Time.every botSpeed (\_ -> Tick), Time.every spawnRate (\_ -> Spawn) ]
 
 
 main : Program () Model Msg
