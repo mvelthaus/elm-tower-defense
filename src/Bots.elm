@@ -16,6 +16,15 @@ type Direction
     | Down
     | Stop
 
+refreshRate : Float
+refreshRate =
+    40
+
+
+spawnRate : Float
+spawnRate =
+    5000
+
 moveStep : Int
 moveStep =
     1

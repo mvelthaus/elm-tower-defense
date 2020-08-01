@@ -5,7 +5,7 @@ type Point
 
 elementSize : Int
 elementSize =
-    10
+    20
 
 getX : Point -> Int
 getX (Point x _) =

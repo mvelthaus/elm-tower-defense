@@ -15,16 +15,6 @@ import Svg.Events exposing (onClick)
 import Time exposing (every)
 
 
-botRefreshRate : Float
-botRefreshRate =
-    30
-
-
-spawnRate : Float
-spawnRate =
-    10000
-
-
 spawnPoint : Point
 spawnPoint =
     Points.Point 0 (height * elementSize // 2)
@@ -32,7 +22,7 @@ spawnPoint =
 
 collidingOffset : Int
 collidingOffset =
-    4
+    round (toFloat elementSize * 0.4)
 
 
 type Msg
@@ -47,10 +37,6 @@ type State
     = Running
     | Lost
     | Paused
-
-
--- type alias Playground =
---     List PitchElement
 
 
 type alias Model =
@@ -299,7 +285,16 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ Time.every botRefreshRate (\_ -> Tick), Time.every spawnRate (\_ -> Spawn) ]
+    case model.state of
+        Running ->
+            Sub.batch [ Time.every Bots.refreshRate (\_ -> Tick), Time.every Bots.spawnRate (\_ -> Spawn) ]
+
+        Paused ->
+            Sub.none
+
+        Lost ->
+            Sub.none
+    
 
 
 main : Program () Model Msg

@@ -1,7 +1,7 @@
 module Towers exposing (..)
 
 import Bots exposing (Bot)
-import Points exposing (Point, isInside)
+import Points exposing (Point, isInside, elementSize)
 import Lists exposing (any)
 
 
@@ -23,7 +23,7 @@ healthPoints =
 
 range : Int
 range =
-    6
+    round (toFloat elementSize * 0.6)
 
 
 create : Point -> Tower
