@@ -42,7 +42,7 @@ move bot =
         Right ->
             {bot | position = Points.Point (getX bot.position + moveStep) (getY bot.position)}
         Left ->
-            bot
+            {bot | position = Points.Point (getX bot.position - moveStep) (getY bot.position)}
         Up ->
             {bot | position = Points.Point (getX bot.position) (getY bot.position - moveStep)}
         Down ->

@@ -1,26 +1,22 @@
 module TowerDefense exposing (main)
 
-import Bots exposing (Bot, Direction, createBot, move)
+import Bots exposing (Bot, createBot, move)
+import Towers exposing (Tower, create)
+import Selections exposing (PitchElement)
 import Browser
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Lists exposing (any)
-import Points exposing (Point, getX, getY)
-import Svg exposing (..)
-import Svg.Attributes exposing (..)
+import Points exposing (Point, getX, getY, toPixels, isBetween, elementSize)
+import Svg exposing (Svg)
+import Svg.Attributes exposing (x, y, fillOpacity, fill, viewBox, cx, cy)
 import Svg.Events exposing (onClick)
 import Time exposing (every)
 
 
-type alias PitchElement =
-    { position : Point
-    , color : String
-    }
-
-
-botSpeed : Float
-botSpeed =
+botRefreshRate : Float
+botRefreshRate =
     30
 
 
@@ -53,13 +49,13 @@ type State
     | Paused
 
 
-type alias Playground =
-    List PitchElement
+-- type alias Playground =
+--     List PitchElement
 
 
 type alias Model =
-    { selectionLayer : Playground
-    , towerLayer : Playground
+    { selectionLayer : List PitchElement
+    , towerLayer : List Tower
     , cash : Int
     , health : Int
     , bots : List Bots.Bot
@@ -72,7 +68,7 @@ initialModel =
     ( { selectionLayer = buildPitch width height, towerLayer = [], cash = 1000, health = 10, bots = [ createBot spawnPoint ], state = Running }, Cmd.none )
 
 
-buildPitch : Int -> Int -> Playground
+buildPitch : Int -> Int -> List PitchElement
 buildPitch w h =
     let
         buildRows row =
@@ -92,11 +88,6 @@ buildRow column row =
 
     else
         []
-
-
-elementSize : Int
-elementSize =
-    10
 
 
 width : Int
@@ -119,11 +110,6 @@ heightInPixels =
     toPixels height
 
 
-toPixels : Int -> Int
-toPixels x =
-    x * elementSize
-
-
 defaultColor : String
 defaultColor =
     "lightgrey"
@@ -134,12 +120,7 @@ hoverColor =
     "grey"
 
 
-towerColor : String
-towerColor =
-    "red"
-
-
-moveBots : List Bot -> Playground -> List Bot
+moveBots : List Bot -> List Tower -> List Bot
 moveBots bots towers =
     case bots of
         x :: xs ->
@@ -153,27 +134,16 @@ moveBots bots towers =
             []
 
 
-collision : Bot -> Playground -> Bot
+collision : Bot -> List Tower -> Bot
 collision bot towers =
-    if towerCollision bot towers then
-        if bot.collided then
-            if getY bot.position <= 0 + collidingOffset then
-                { bot | direction = Bots.Down }
+    if getY bot.position <= 0 + collidingOffset then
+        { bot | direction = Bots.Down }
 
-            else if getY bot.position >= heightInPixels - collidingOffset then
-                { bot | direction = Bots.Up }
-
-            else
-                bot
-
-        else if getY bot.position > heightInPixels // 2 then
-            { bot | direction = Bots.Up, collided = True }
-
-        else
-            { bot | direction = Bots.Down, collided = True }
+    else if getY bot.position >= heightInPixels - collidingOffset then
+        { bot | direction = Bots.Up }
 
     else
-        { bot | direction = Bots.Right, collided = False }
+        collisionTower bot towers
 
 
 collisionEnd : Bot -> Bool
@@ -181,31 +151,42 @@ collisionEnd b =
     getX b.position > widthInPixels
 
 
-towerCollision : Bot -> Playground -> Bool
-towerCollision bot towers =
-    Lists.any (\p -> isInside p.position bot.position) towers
+collisionTower : Bot -> List Tower -> Bot
+collisionTower bot towers =
+    if Lists.any (\p -> collideYBot p.position bot.position) towers then
+        { bot | direction = Bots.Down }
 
+    else if Lists.any (\p -> collideYTop p.position bot.position) towers then
+        { bot | direction = Bots.Up }
 
-isInside : Point -> Point -> Bool
-isInside towerPos botPos =
-    isBetween (getX towerPos) (getX botPos) && isBetween (getY towerPos) (getY botPos)
+    else if Lists.any (\p -> collideX p.position bot.position) towers then
+        if bot.collided == False then
+            if getY bot.position > heightInPixels // 2 then
+                { bot | direction = Bots.Up, collided = True }
 
+            else
+                { bot | direction = Bots.Down, collided = True }
 
-isBetween : Int -> Int -> Bool
-isBetween x i =
-    i >= toPixels x - collidingOffset && i <= toPixels x + elementSize + collidingOffset
-
-
-borderCollision : Bot -> Direction
-borderCollision bot =
-    if getY bot.position <= 0 then
-        Bots.Down
-
-    else if getY bot.position >= heightInPixels then
-        Bots.Up
+        else
+            bot
 
     else
-        bot.direction
+        { bot | direction = Bots.Right, collided = False }
+
+
+collideX : Point -> Point -> Bool
+collideX towerPos botPos =
+    toPixels (getX towerPos) - collidingOffset == getX botPos && isBetween (getY towerPos) (getY botPos) collidingOffset
+
+
+collideYBot : Point -> Point -> Bool
+collideYBot towerPos botPos =
+    isBetween (getX towerPos) (getX botPos) 0 && toPixels (getY towerPos) + elementSize + collidingOffset == getY botPos
+
+
+collideYTop : Point -> Point -> Bool
+collideYTop towerPos botPos =
+    isBetween (getX towerPos) (getX botPos) 0 && toPixels (getY towerPos) - collidingOffset == getY botPos
 
 
 mark : Point -> String -> List PitchElement -> List PitchElement
@@ -222,28 +203,14 @@ mark p c l =
             []
 
 
-createTower : Point -> List PitchElement -> List PitchElement
-createTower p l =
-    case l of
-        x :: xs ->
-            if x.position == p then
-                { x | color = towerColor } :: createTower p xs
-
-            else
-                createTower p xs
-
-        [] ->
-            []
-
-
-pitchToSvg : Playground -> Playground -> List Bot -> List (Svg Msg)
+pitchToSvg : List PitchElement -> List Tower -> List Bot -> List (Svg Msg)
 pitchToSvg selection tower bot =
     List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
 
 
 drawRect : PitchElement -> Svg Msg
 drawRect { position, color } =
-    rect
+    Svg.rect
         [ Svg.Events.onClick (Click position)
         , Svg.Events.onMouseOut (MouseOut position)
         , Svg.Events.onMouseOver (MouseOver position)
@@ -257,9 +224,9 @@ drawRect { position, color } =
         []
 
 
-drawTower : PitchElement -> Svg Msg
+drawTower : Tower -> Svg Msg
 drawTower { position, color } =
-    rect
+    Svg.rect
         [ x (String.fromInt (getX position * elementSize))
         , y (String.fromInt (getY position * elementSize))
         , Svg.Attributes.width (String.fromInt elementSize)
@@ -271,7 +238,7 @@ drawTower { position, color } =
 
 drawBot : Bot -> Svg Msg
 drawBot { position, color } =
-    circle
+    Svg.circle
         [ cx (String.fromInt (getX position))
         , cy (String.fromInt (getY position))
         , Svg.Attributes.r (String.fromFloat (toFloat elementSize * 0.2))
@@ -284,8 +251,8 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click pos ->
-            if model.cash >= 10 && Lists.any (\p -> pos == p.position && p.color == towerColor) model.towerLayer == False then
-                ( { model | towerLayer = model.towerLayer ++ createTower pos model.selectionLayer, cash = model.cash - 10 }, Cmd.none )
+            if model.cash >= 10 && Lists.any (\p -> pos == p.position ) model.towerLayer == False then
+                ( { model | towerLayer = create pos :: model.towerLayer, cash = model.cash - 10 }, Cmd.none )
 
             else
                 ( model, Cmd.none )
@@ -298,10 +265,10 @@ update msg model =
 
         Tick ->
             if Lists.any (\p -> getX p.position > widthInPixels) model.bots then
-                ( { model | health = model.health - 1, bots = moveBots model.bots model.towerLayer }, Cmd.none )
+                ( { model | health = model.health - 1, bots = moveBots model.bots model.towerLayer}, Cmd.none )
 
             else
-                ( { model | bots = moveBots model.bots model.towerLayer }, Cmd.none )
+                ( { model | bots = moveBots model.bots model.towerLayer, towerLayer = Towers.updateHealth model.bots model.towerLayer }, Cmd.none )
 
         Spawn ->
             ( { model | bots = createBot spawnPoint :: model.bots }, Cmd.none )
@@ -319,7 +286,7 @@ view model =
               Html.text ("Cash: " ++ String.fromInt model.cash)
             , Html.text (" Health: " ++ String.fromInt model.health)
             , div []
-                [ svg
+                [ Svg.svg
                     [ viewBox (String.concat [ "0 0 ", String.fromInt (width * elementSize), " ", String.fromInt (height * elementSize) ])
                     ]
                     (pitchToSvg model.selectionLayer model.towerLayer model.bots)
@@ -332,7 +299,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ Time.every botSpeed (\_ -> Tick), Time.every spawnRate (\_ -> Spawn) ]
+    Sub.batch [ Time.every botRefreshRate (\_ -> Tick), Time.every spawnRate (\_ -> Spawn) ]
 
 
 main : Program () Model Msg
