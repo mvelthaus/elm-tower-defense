@@ -4,6 +4,7 @@
 module Lists exposing (..)
 
 import Tuple
+import Html exposing (b)
 
 
 
@@ -65,7 +66,13 @@ indexedMap f l =
     in
     Tuple.first (countedMapLocal 0)
 
-
+listMap : (a -> a -> b) -> a -> List a -> List b
+listMap f p l =
+    case l of
+        x :: xs ->
+            f x p :: listMap f p xs
+        [] ->
+            []
 
 -- add an element at the end
 
@@ -92,3 +99,16 @@ length l =
 
         _ :: xs ->
             1 + length xs
+
+doubleMap : (a -> Bool) -> (List b -> a -> a) -> List a -> List b -> List a
+doubleMap fBool fA lA lB =
+    case lA of
+        x :: xs ->
+            if fBool x then
+                doubleMap fBool fA xs lB
+
+            else
+                fA lB x :: doubleMap fBool fA xs lB
+
+        [] ->
+            []

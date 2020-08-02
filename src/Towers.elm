@@ -1,14 +1,13 @@
 module Towers exposing (..)
 
-import Bots exposing (Bot)
-import Points exposing (Point, isInside, elementSize)
-import Lists exposing (any)
+import Points exposing (Point, elementSize)
 
 
 type alias Tower =
     { position : Point
     , health : Int
     , color : String
+    , attackPoints : List Point
     }
 
 
@@ -19,36 +18,35 @@ color =
 
 healthPoints : Int
 healthPoints =
-    100
+    20
 
 range : Int
 range =
-    round (toFloat elementSize * 0.6)
+    round (toFloat elementSize)
+
+damage : Int
+damage =
+    1
+
+attackSpeed : Float
+attackSpeed =
+    100
 
 
 create : Point -> Tower
 create p =
-    { position = p, health = healthPoints, color = color }
+    { position = p, health = healthPoints, color = color, attackPoints = []}
 
-updateHealth : List Bot -> List Tower -> List Tower
-updateHealth bots towers =
+repair : Point -> List Tower -> List Tower
+repair p towers =
     case towers of
         x :: xs ->
-            if x.health <= 0 then
-                updateHealth bots xs
+            if p == x.position then
+                {x | health = healthPoints} :: repair p xs
             else
-                collision bots x :: updateHealth bots xs
-
+               x :: repair p xs
         [] ->
-            towers
-
-collision : List Bot -> Tower -> Tower
-collision bots tower =
-    if Lists.any (\p -> isInside tower.position p.position range) bots then
-        {tower | health = tower.health - 1, color = updateColor tower.health}
-    else
-        tower
-
+            [] 
 
 updateColor : Int -> String
 updateColor health =

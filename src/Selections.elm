@@ -1,6 +1,6 @@
 module Selections exposing (..)
 
-import Points exposing (Point, getX, getY)
+import Points exposing (Point)
 
 type alias PitchElement =
     { position : Point
