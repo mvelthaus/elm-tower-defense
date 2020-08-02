@@ -22,11 +22,11 @@ type Direction
 
 size : Float
 size =
-    toFloat elementSize * 0.4
+    toFloat elementSize * 0.6
 
 refreshRate : Float
 refreshRate =
-    50
+    30
 
 
 spawnRate : Float

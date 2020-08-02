@@ -20,6 +20,10 @@ healthPoints : Int
 healthPoints =
     20
 
+healthPointsPercent : Int -> Float
+healthPointsPercent h =
+    toFloat h / toFloat healthPoints
+
 range : Int
 range =
     round (toFloat elementSize)
@@ -30,7 +34,7 @@ damage =
 
 attackSpeed : Float
 attackSpeed =
-    100
+    60
 
 
 create : Point -> Tower

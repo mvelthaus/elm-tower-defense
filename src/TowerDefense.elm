@@ -9,7 +9,7 @@ import List
 import Lists
 import Points exposing (Point, elementSize, getX, getY, isBetween, isInside, toPixels)
 import Selections exposing (PitchElement)
-import String exposing (fromInt, fromFloat)
+import String exposing (fromFloat, fromInt)
 import Svg exposing (Svg)
 import Svg.Attributes exposing (cx, cy, fill, fillOpacity, viewBox, x, y)
 import Svg.Events exposing (onClick)
@@ -185,7 +185,7 @@ updateBotHealth towers bot =
 updateTowerHealth : List Bot -> Tower -> Tower
 updateTowerHealth bots tower =
     if Lists.any (\p -> isInside tower.position p.position Towers.range) bots then
-        { tower | health = tower.health - 1, {- color = Towers.updateColor tower.health, -} attackPoints = addAttackPoints bots tower }
+        { tower | health = tower.health - 1, attackPoints = addAttackPoints bots tower }
 
     else
         { tower | attackPoints = [] }
@@ -278,16 +278,24 @@ drawAttackLines attackPoints towerPos =
 
 
 drawTower : Tower -> Svg Msg
-drawTower tower =
+drawTower {position, health, attackPoints} =
     Svg.g
         []
-        (drawAttackLines tower.attackPoints tower.position
+        (drawAttackLines attackPoints position
             ++ [ Svg.rect
-                    [ x (String.fromInt (getX tower.position * elementSize))
-                    , y (String.fromInt (getY tower.position * elementSize))
-                    , Svg.Attributes.width (String.fromInt elementSize)
-                    , Svg.Attributes.height (String.fromInt elementSize)
-                    , fill (Towers.updateColor tower.health)
+                    [ x (fromInt (getX position * elementSize))
+                    , y (fromInt (getY position * elementSize))
+                    , Svg.Attributes.width (fromInt elementSize)
+                    , Svg.Attributes.height (fromInt elementSize)
+                    , fill "darkgrey"
+                    ]
+                    []
+               , Svg.rect
+                    [ x (fromInt (toPixels (getX position)))
+                    , y (fromFloat (toFloat (toPixels (getY position)) + toFloat elementSize * 0.8))
+                    , Svg.Attributes.width (fromFloat (toFloat elementSize * Towers.healthPointsPercent health))
+                    , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.2))
+                    , fill "green"
                     ]
                     []
                ]
@@ -299,8 +307,8 @@ drawBot { position, color, health } =
     Svg.g
         []
         [ Svg.rect
-            [ x (fromInt (getX position - round (Bots.size/2)))
-            , y (fromInt (getY position - 8))
+            [ x (fromInt (getX position - round (Bots.size / 2)))
+            , y (fromInt (getY position - round (Bots.size * 0.8)))
             , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
             , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
             , fill "green"
@@ -309,11 +317,35 @@ drawBot { position, color, health } =
         , Svg.circle
             [ cx (fromInt (getX position))
             , cy (fromInt (getY position))
-            , Svg.Attributes.r (fromFloat (Bots.size/2))
+            , Svg.Attributes.r (fromFloat (Bots.size / 2))
             , fill color
             ]
             []
         ]
+
+
+
+-- drawBot : Bot -> Svg Msg
+-- drawBot { position, health } =
+--     Svg.g
+--         []
+--         [ Svg.rect
+--             [ x (fromInt (getX position - round (Bots.size/2)))
+--             , y (fromInt (getY position - 8))
+--             , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
+--             , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
+--             , fill "green"
+--             ]
+--             []
+--         , Svg.image
+--             [ x (fromFloat (toFloat (getX position) - Bots.size/2))
+--             , y (fromFloat (toFloat (getY position) - Bots.size/2))
+--             , Svg.Attributes.xlinkHref "bot.svg"
+--             , Svg.Attributes.width (fromFloat Bots.size)
+--             , Svg.Attributes.height (fromFloat Bots.size)
+--             ]
+--             []
+--         ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -322,8 +354,10 @@ update msg model =
         Click pos ->
             if model.cash >= 10 && Lists.any (\p -> pos == p.position) model.towers == False then
                 ( { model | towers = create pos :: model.towers, cash = model.cash - 10 }, Cmd.none )
+
             else if model.cash >= 5 && Lists.any (\p -> pos == p.position) model.towers then
                 ( { model | towers = Towers.repair pos model.towers, cash = model.cash - 5 }, Cmd.none )
+
             else
                 ( model, Cmd.none )
 
