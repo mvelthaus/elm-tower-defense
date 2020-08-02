@@ -5,7 +5,7 @@ import Points exposing (Point, elementSize)
 
 type alias Tower =
     { position : Point
-    , health : Int
+    , health : Float
     , color : String
     , attackPoints : List Point
     }
@@ -15,22 +15,29 @@ color : String
 color =
     "green"
 
+buildCost : Int
+buildCost =
+    10
 
-healthPoints : Int
+repairCost : Int
+repairCost =
+    8
+
+healthPoints : Float
 healthPoints =
-    20
+    100
 
-healthPointsPercent : Int -> Float
+healthPointsPercent : Float -> Float
 healthPointsPercent h =
-    toFloat h / toFloat healthPoints
+    h / healthPoints
 
 range : Int
 range =
     round (toFloat elementSize)
 
-damage : Int
+damage : Float
 damage =
-    1
+    0.1
 
 attackSpeed : Float
 attackSpeed =
@@ -52,12 +59,12 @@ repair p towers =
         [] ->
             [] 
 
-updateColor : Int -> String
+updateColor : Float -> String
 updateColor health =
-    if health < round (toFloat healthPoints * 0.3) then
+    if health < healthPoints * 0.3 then
         "red"
 
-    else if health < round (toFloat healthPoints * 0.6) then
+    else if health < healthPoints * 0.6 then
         "yellow"
 
     else

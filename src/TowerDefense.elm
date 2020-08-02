@@ -11,7 +11,7 @@ import Points exposing (Point, elementSize, getX, getY, isBetween, isInside, toP
 import Selections exposing (PitchElement)
 import String exposing (fromFloat, fromInt)
 import Svg exposing (Svg)
-import Svg.Attributes exposing (cx, cy, fill, fillOpacity, viewBox, x, y)
+import Svg.Attributes exposing (fill, fillOpacity, viewBox, x, y)
 import Svg.Events exposing (onClick)
 import Time exposing (every)
 import Towers exposing (Tower, create)
@@ -54,7 +54,7 @@ type alias Model =
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { selectionLayer = buildPitch width height, towers = [], cash = 1000, health = 10, bots = [ createBot spawnPoint ], state = Running }, Cmd.none )
+    ( { selectionLayer = buildPitch width height, towers = [], cash = 20, health = 10, bots = [ createBot spawnPoint ], state = Running }, Cmd.none )
 
 
 buildPitch : Int -> Int -> List PitchElement
@@ -73,7 +73,7 @@ buildPitch w h =
 buildRow : Int -> Int -> List PitchElement
 buildRow column row =
     if column >= 0 then
-        { position = Points.Point column row, color = defaultColor } :: buildRow (column - 1) row
+        { position = Points.Point column row, color = defaultColor, opacity = 0.0 } :: buildRow (column - 1) row
 
     else
         []
@@ -101,7 +101,7 @@ heightInPixels =
 
 defaultColor : String
 defaultColor =
-    "lightgrey"
+    "white"
 
 
 hoverColor : String
@@ -176,7 +176,7 @@ attackTowers towers bots =
 updateBotHealth : List Tower -> Bot -> Bot
 updateBotHealth towers bot =
     if Lists.any (\p -> isInside p.position bot.position Towers.range) towers then
-        { bot | health = bot.health - 1 }
+        { bot | health = bot.health - Towers.damage }
 
     else
         bot
@@ -185,7 +185,7 @@ updateBotHealth towers bot =
 updateTowerHealth : List Bot -> Tower -> Tower
 updateTowerHealth bots tower =
     if Lists.any (\p -> isInside tower.position p.position Towers.range) bots then
-        { tower | health = tower.health - 1, attackPoints = addAttackPoints bots tower }
+        { tower | health = tower.health - Towers.damage * 2, attackPoints = addAttackPoints bots tower }
 
     else
         { tower | attackPoints = [] }
@@ -220,15 +220,15 @@ collideYTop towerPos botPos =
     isBetween (getX towerPos) (getX botPos) 0 && toPixels (getY towerPos) - collidingOffset == getY botPos
 
 
-mark : Point -> String -> List PitchElement -> List PitchElement
-mark p c l =
+mark : Point -> Float -> String -> List PitchElement -> List PitchElement
+mark p opacity c l =
     case l of
         x :: xs ->
             if x.position == p then
-                { x | color = c } :: mark p c xs
+                { x | color = c, opacity = opacity } :: mark p opacity c xs
 
             else
-                x :: mark p c xs
+                x :: mark p opacity c xs
 
         [] ->
             []
@@ -236,11 +236,21 @@ mark p c l =
 
 pitchToSvg : List PitchElement -> List Tower -> List Bot -> List (Svg Msg)
 pitchToSvg selection tower bot =
-    List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
+    drawBackground :: List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
 
+drawBackground : Svg Msg
+drawBackground =
+    Svg.rect
+            [ x "0"
+            , y "0"
+            , Svg.Attributes.width (fromInt widthInPixels)
+            , Svg.Attributes.height (fromInt heightInPixels)
+            , fill "darkgrey"
+            ]
+            []
 
 drawRect : PitchElement -> Svg Msg
-drawRect { position, color } =
+drawRect { position, color, opacity } =
     Svg.rect
         [ Svg.Events.onClick (Click position)
         , Svg.Events.onMouseOut (MouseOut position)
@@ -250,7 +260,7 @@ drawRect { position, color } =
         , Svg.Attributes.width (String.fromInt elementSize)
         , Svg.Attributes.height (String.fromInt elementSize)
         , fill color
-        , fillOpacity "0.3"
+        , fillOpacity (fromFloat opacity)
         ]
         []
 
@@ -262,7 +272,7 @@ drawAttackLine towerPos attackPos =
         , Svg.Attributes.y1 (fromInt (toPixels (getY towerPos) + elementSize // 2))
         , Svg.Attributes.x2 (fromInt (getX attackPos))
         , Svg.Attributes.y2 (fromInt (getY attackPos))
-        , Svg.Attributes.style "stroke:rgb(0,0,255);stroke-width:1"
+        , Svg.Attributes.style "stroke:rgb(0,0,255);stroke-width:3"
         ]
         []
 
@@ -302,70 +312,70 @@ drawTower {position, health, attackPoints} =
         )
 
 
-drawBot : Bot -> Svg Msg
-drawBot { position, color, health } =
-    Svg.g
-        []
-        [ Svg.rect
-            [ x (fromInt (getX position - round (Bots.size / 2)))
-            , y (fromInt (getY position - round (Bots.size * 0.8)))
-            , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
-            , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
-            , fill "green"
-            ]
-            []
-        , Svg.circle
-            [ cx (fromInt (getX position))
-            , cy (fromInt (getY position))
-            , Svg.Attributes.r (fromFloat (Bots.size / 2))
-            , fill color
-            ]
-            []
-        ]
-
-
-
 -- drawBot : Bot -> Svg Msg
--- drawBot { position, health } =
+-- drawBot { position, color, health } =
 --     Svg.g
 --         []
 --         [ Svg.rect
---             [ x (fromInt (getX position - round (Bots.size/2)))
---             , y (fromInt (getY position - 8))
+--             [ x (fromInt (getX position - round (Bots.size / 2)))
+--             , y (fromInt (getY position - round (Bots.size * 0.8)))
 --             , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
 --             , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
 --             , fill "green"
 --             ]
 --             []
---         , Svg.image
---             [ x (fromFloat (toFloat (getX position) - Bots.size/2))
---             , y (fromFloat (toFloat (getY position) - Bots.size/2))
---             , Svg.Attributes.xlinkHref "bot.svg"
---             , Svg.Attributes.width (fromFloat Bots.size)
---             , Svg.Attributes.height (fromFloat Bots.size)
+--         , Svg.circle
+--             [ cx (fromInt (getX position))
+--             , cy (fromInt (getY position))
+--             , Svg.Attributes.r (fromFloat (Bots.size / 2))
+--             , fill color
 --             ]
 --             []
 --         ]
+
+
+
+drawBot : Bot -> Svg Msg
+drawBot { position, health } =
+    Svg.g
+        []
+        [ Svg.rect
+            [ x (fromInt (getX position - round (Bots.size/2)))
+            , y (fromInt (getY position - round (Bots.size * 0.6)))
+            , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
+            , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
+            , fill "green"
+            ]
+            []
+        , Svg.image
+            [ x (fromFloat (toFloat (getX position) - Bots.size/2))
+            , y (fromFloat (toFloat (getY position) - Bots.size/2))
+            , Svg.Attributes.xlinkHref "monster.png"
+            , Svg.Attributes.width (fromFloat Bots.size)
+            , Svg.Attributes.height (fromFloat Bots.size)
+            ]
+            []
+        ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click pos ->
-            if model.cash >= 10 && Lists.any (\p -> pos == p.position) model.towers == False then
-                ( { model | towers = create pos :: model.towers, cash = model.cash - 10 }, Cmd.none )
+            if model.cash >= Towers.buildCost && Lists.any (\p -> pos == p.position) model.towers == False then
+                ( { model | towers = create pos :: model.towers, cash = model.cash - Towers.buildCost }, Cmd.none )
 
-            else if model.cash >= 5 && Lists.any (\p -> pos == p.position) model.towers then
-                ( { model | towers = Towers.repair pos model.towers, cash = model.cash - 5 }, Cmd.none )
+            else if model.cash >= Towers.repairCost && Lists.any (\p -> pos == p.position) model.towers then
+                ( { model | towers = Towers.repair pos model.towers, cash = model.cash - Towers.repairCost }, Cmd.none )
 
             else
                 ( model, Cmd.none )
 
         MouseOver pos ->
-            ( { model | selectionLayer = mark pos hoverColor model.selectionLayer }, Cmd.none )
+            ( { model | selectionLayer = mark pos 0.3 hoverColor model.selectionLayer }, Cmd.none )
 
         MouseOut pos ->
-            ( { model | selectionLayer = mark pos defaultColor model.selectionLayer }, Cmd.none )
+            ( { model | selectionLayer = mark pos 0.0 defaultColor model.selectionLayer }, Cmd.none )
 
         Tick ->
             if Lists.any (\p -> getX p.position > widthInPixels) model.bots then
@@ -379,7 +389,7 @@ update msg model =
 
         Attack ->
             if Lists.any (\p -> p.health <= 0) model.bots then
-                ( { model | cash = model.cash + 5, bots = attackBots model.bots model.towers, towers = attackTowers model.towers model.bots }, Cmd.none )
+                ( { model | cash = model.cash + Bots.worth, bots = attackBots model.bots model.towers, towers = attackTowers model.towers model.bots }, Cmd.none )
 
             else
                 ( { model | bots = attackBots model.bots model.towers, towers = attackTowers model.towers model.bots }, Cmd.none )

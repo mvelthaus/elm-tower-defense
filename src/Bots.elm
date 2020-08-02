@@ -8,7 +8,7 @@ type alias Bot =
     { position : Point
     , direction : Direction
     , color : String
-    , health : Int
+    , health : Float
     , collided : Bool
     }
 
@@ -22,7 +22,7 @@ type Direction
 
 size : Float
 size =
-    toFloat elementSize * 0.6
+    toFloat elementSize * 0.8
 
 refreshRate : Float
 refreshRate =
@@ -39,14 +39,18 @@ moveStep =
     1
 
 
-healthPoints : Int
+healthPoints : Float
 healthPoints =
     10
 
+worth : Int
+worth =
+    3
 
-healthPointsPercent : Int -> Float
+
+healthPointsPercent : Float -> Float
 healthPointsPercent h =
-    toFloat h / toFloat healthPoints
+    h / healthPoints
 
 
 type alias MoveArea =
@@ -75,19 +79,3 @@ move bot =
 
         Stop ->
             bot
-
-
-
--- move : Bot -> Point
--- move {position, direction} =
---     case direction of
---         Right ->
---             Points.Point (getX position + moveStep) (getY position)
---         Left ->
---             Points.Point (getX position - moveStep) (getY position)
---         Up ->
---             Points.Point (getX position) (getY position - moveStep)
---         Down ->
---             Points.Point (getX position) (getY position + moveStep)
---         Stop ->
---             position
