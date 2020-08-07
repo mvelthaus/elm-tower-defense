@@ -1,13 +1,14 @@
 module TowerDefense exposing (main)
 
-import Bots exposing (Bot, createBot, move)
+import Bots exposing (Bot, Direction, createBot, move)
 import Browser
 import Html exposing (Html, div)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import List
 import Lists
-import Points exposing (Point, elementSize, getX, getY, isBetween, isInside, toPixels)
+import Points exposing (Point, elementSize, getX, getY, isBetween, isInside, toPixelPoint, toPixels)
+import Random
 import Selections exposing (PitchElement)
 import String exposing (fromFloat, fromInt)
 import Svg exposing (Svg)
@@ -31,9 +32,11 @@ type Msg
     = Click Point
     | MouseOver Point
     | MouseOut Point
-    | Tick
-    | Spawn
-    | Attack
+    | Move Bots.Direction
+    | MoveTick
+    | SpawnTick
+    | Spawn Bots.BotType
+    | AttackTick
 
 
 type State
@@ -54,7 +57,7 @@ type alias Model =
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { selectionLayer = buildPitch width height, towers = [], cash = 20, health = 10, bots = [ createBot spawnPoint ], state = Running }, Cmd.none )
+    ( { selectionLayer = buildPitch width height, towers = [], cash = 200, health = 10, bots = [ createBot spawnPoint Bots.Default ], state = Running }, Cmd.none )
 
 
 buildPitch : Int -> Int -> List PitchElement
@@ -109,22 +112,22 @@ hoverColor =
     "grey"
 
 
-moveBots : List Bot -> List Tower -> List Bot
-moveBots bots towers =
+moveBots : List Bot -> List Tower -> Direction -> List Bot
+moveBots bots towers direct =
     case bots of
         x :: xs ->
             if collisionEnd x then
-                moveBots xs towers
+                moveBots xs towers direct
 
             else
-                move (collision towers x) :: moveBots xs towers
+                move (collision towers x direct) :: moveBots xs towers direct
 
         [] ->
             []
 
 
-collision : List Tower -> Bot -> Bot
-collision towers bot =
+collision : List Tower -> Bot -> Direction -> Bot
+collision towers bot direct =
     if getY bot.position <= 0 + collidingOffset then
         { bot | direction = Bots.Down }
 
@@ -132,7 +135,7 @@ collision towers bot =
         { bot | direction = Bots.Up }
 
     else
-        collisionTower bot towers
+        collisionTower bot towers direct
 
 
 collisionEnd : Bot -> Bool
@@ -140,8 +143,8 @@ collisionEnd b =
     getX b.position > widthInPixels
 
 
-collisionTower : Bot -> List Tower -> Bot
-collisionTower bot towers =
+collisionTower : Bot -> List Tower -> Direction -> Bot
+collisionTower bot towers direct =
     if Lists.any (\p -> collideYBot p.position bot.position) towers then
         { bot | direction = Bots.Down }
 
@@ -151,10 +154,10 @@ collisionTower bot towers =
     else if Lists.any (\p -> collideX p.position bot.position) towers then
         if bot.collided == False then
             if getY bot.position > heightInPixels // 2 then
-                { bot | direction = Bots.Up, collided = True }
+                { bot | direction = direct, collided = True }
 
             else
-                { bot | direction = Bots.Down, collided = True }
+                { bot | direction = direct, collided = True }
 
         else
             bot
@@ -185,24 +188,25 @@ updateBotHealth towers bot =
 updateTowerHealth : List Bot -> Tower -> Tower
 updateTowerHealth bots tower =
     if Lists.any (\p -> isInside tower.position p.position Towers.range) bots then
-        { tower | health = tower.health - Towers.damage * 2, attackPoints = addAttackPoints bots tower }
+        { tower | health = tower.health - Towers.damage * 2, attackPoint = addAttackPoint bots tower }
 
     else
-        { tower | attackPoints = [] }
+        { tower | attackPoint = Nothing }
 
 
-addAttackPoints : List Bot -> Tower -> List Point
-addAttackPoints bots tower =
+addAttackPoint : List Bot -> Tower -> Maybe Point
+addAttackPoint bots tower =
     case bots of
         x :: xs ->
             if isInside tower.position x.position Towers.range then
-                x.position :: addAttackPoints xs tower
+                Just x.position
+                {- :: addAttackPoint xs tower -}
 
             else
-                addAttackPoints xs tower
+                addAttackPoint xs tower
 
         [] ->
-            []
+            Nothing
 
 
 collideX : Point -> Point -> Bool
@@ -238,16 +242,18 @@ pitchToSvg : List PitchElement -> List Tower -> List Bot -> List (Svg Msg)
 pitchToSvg selection tower bot =
     drawBackground :: List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
 
+
 drawBackground : Svg Msg
 drawBackground =
     Svg.rect
-            [ x "0"
-            , y "0"
-            , Svg.Attributes.width (fromInt widthInPixels)
-            , Svg.Attributes.height (fromInt heightInPixels)
-            , fill "darkgrey"
-            ]
-            []
+        [ x "0"
+        , y "0"
+        , Svg.Attributes.width (fromInt widthInPixels)
+        , Svg.Attributes.height (fromInt heightInPixels)
+        , fill "#ECDCB8"
+        ]
+        []
+
 
 drawRect : PitchElement -> Svg Msg
 drawRect { position, color, opacity } =
@@ -265,92 +271,88 @@ drawRect { position, color, opacity } =
         []
 
 
-drawAttackLine : Point -> Point -> Svg Msg
+drawAttackLine : Point -> Maybe Point -> List (Svg Msg)
 drawAttackLine towerPos attackPos =
-    Svg.line
-        [ Svg.Attributes.x1 (fromInt (toPixels (getX towerPos) + elementSize // 2))
-        , Svg.Attributes.y1 (fromInt (toPixels (getY towerPos) + elementSize // 2))
-        , Svg.Attributes.x2 (fromInt (getX attackPos))
-        , Svg.Attributes.y2 (fromInt (getY attackPos))
-        , Svg.Attributes.style "stroke:rgb(0,0,255);stroke-width:3"
-        ]
-        []
-
-
-drawAttackLines : List Point -> Point -> List (Svg Msg)
-drawAttackLines attackPoints towerPos =
-    case attackPoints of
-        x :: xs ->
-            drawAttackLine towerPos x :: drawAttackLines xs towerPos
-
-        [] ->
+    case attackPos of
+        Nothing ->
             []
+
+        Just p ->
+            [ Svg.line
+                [ Svg.Attributes.x1 (fromInt (toPixels (getX towerPos) + elementSize // 2))
+                , Svg.Attributes.y1 (fromInt (toPixels (getY towerPos) + elementSize // 2))
+                , Svg.Attributes.x2 (fromInt (getX p))
+                , Svg.Attributes.y2 (fromInt (getY p))
+                , Svg.Attributes.stroke "#E45040"
+                , Svg.Attributes.strokeWidth "3"
+                ]
+                []
+            ]
 
 
 drawTower : Tower -> Svg Msg
-drawTower {position, health, attackPoints} =
+drawTower { position, health, attackPoint } =
     Svg.g
         []
-        (drawAttackLines attackPoints position
-            ++ [ Svg.rect
-                    [ x (fromInt (getX position * elementSize))
-                    , y (fromInt (getY position * elementSize))
-                    , Svg.Attributes.width (fromInt elementSize)
-                    , Svg.Attributes.height (fromInt elementSize)
-                    , fill "darkgrey"
+        (Svg.image
+            [ x (fromInt (getX position * elementSize))
+            , y (fromInt (getY position * elementSize))
+            , Svg.Attributes.width (fromInt elementSize)
+            , Svg.Attributes.height (fromInt elementSize)
+            , Svg.Attributes.xlinkHref "Graphics/tower.png"
+            ]
+            []
+            :: drawAttackLine position attackPoint
+            ++ [ Svg.g
+                    [Svg.Attributes.transform (Towers.getRotation attackPoint (toPixelPoint position))
                     ]
-                    []
-               , Svg.rect
-                    [ x (fromInt (toPixels (getX position)))
-                    , y (fromFloat (toFloat (toPixels (getY position)) + toFloat elementSize * 0.8))
-                    , Svg.Attributes.width (fromFloat (toFloat elementSize * Towers.healthPointsPercent health))
-                    , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.2))
-                    , fill "green"
+                    [ Svg.image
+                        [ x (fromInt (getX position * elementSize))
+                        , y (fromInt (getY position * elementSize))
+                        , Svg.Attributes.width (fromInt elementSize)
+                        , Svg.Attributes.height (fromInt elementSize)
+                        , Svg.Attributes.xlinkHref "Graphics/canon.png"
+                        {- , Svg.Attributes.transform (Towers.getRotation attackPoint (toPixelPoint position)) -}
+                        ]
+                        []
+                    , Svg.circle
+                        [ Svg.Attributes.cx (fromInt (toPixels (getX position) + elementSize // 2))
+                        , Svg.Attributes.cy (fromFloat (toFloat (toPixels (getY position)) + (toFloat elementSize * 0.7)))
+                        , Svg.Attributes.r (fromFloat (toFloat elementSize * 0.08))
+                        , fill (Towers.updateColor health)
+                        ]
+                        []
                     ]
-                    []
+
+               --    , Svg.rect
+               --         [ x (fromFloat (toFloat (toPixels (getX position)) + toFloat elementSize * 0.8))
+               --         , y (fromInt (toPixels (getY position)))
+               --         , Svg.Attributes.width (fromFloat (toFloat elementSize * 0.1))
+               --         , Svg.Attributes.height (fromFloat (toFloat elementSize * Towers.healthPointsPercent health * 0.8))
+               --         , fill (Towers.updateColor health)
+               --         ]
+               --         []
                ]
         )
 
 
--- drawBot : Bot -> Svg Msg
--- drawBot { position, color, health } =
---     Svg.g
---         []
---         [ Svg.rect
---             [ x (fromInt (getX position - round (Bots.size / 2)))
---             , y (fromInt (getY position - round (Bots.size * 0.8)))
---             , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
---             , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
---             , fill "green"
---             ]
---             []
---         , Svg.circle
---             [ cx (fromInt (getX position))
---             , cy (fromInt (getY position))
---             , Svg.Attributes.r (fromFloat (Bots.size / 2))
---             , fill color
---             ]
---             []
---         ]
-
-
-
 drawBot : Bot -> Svg Msg
-drawBot { position, health } =
+drawBot { position, health, botType, direction } =
     Svg.g
         []
         [ Svg.rect
-            [ x (fromInt (getX position - round (Bots.size/2)))
+            [ x (fromInt (getX position - round (Bots.size * 0.4)))
             , y (fromInt (getY position - round (Bots.size * 0.6)))
-            , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent health))
-            , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.1))
+            , Svg.Attributes.width (fromFloat (Bots.size * Bots.healthPointsPercent botType health * 0.8))
+            , Svg.Attributes.height (fromFloat (toFloat elementSize * 0.08))
             , fill "green"
             ]
             []
         , Svg.image
-            [ x (fromFloat (toFloat (getX position) - Bots.size/2))
-            , y (fromFloat (toFloat (getY position) - Bots.size/2))
-            , Svg.Attributes.xlinkHref "monster.png"
+            [ x (fromFloat (toFloat (getX position) - Bots.size / 2))
+            , y (fromFloat (toFloat (getY position) - Bots.size / 2))
+            , Svg.Attributes.transform (Bots.getRoation direction position)
+            , Svg.Attributes.xlinkHref (Bots.getImageLink botType)
             , Svg.Attributes.width (fromFloat Bots.size)
             , Svg.Attributes.height (fromFloat Bots.size)
             ]
@@ -377,17 +379,23 @@ update msg model =
         MouseOut pos ->
             ( { model | selectionLayer = mark pos 0.0 defaultColor model.selectionLayer }, Cmd.none )
 
-        Tick ->
+        MoveTick ->
+            ( model, Random.generate Move Bots.directionGenerator )
+
+        Move direct ->
             if Lists.any (\p -> getX p.position > widthInPixels) model.bots then
-                ( { model | health = model.health - 1, bots = moveBots model.bots model.towers }, Cmd.none )
+                ( { model | health = model.health - 1, bots = moveBots model.bots model.towers direct }, Cmd.none )
 
             else
-                ( { model | bots = moveBots model.bots model.towers }, Cmd.none )
+                ( { model | bots = moveBots model.bots model.towers direct }, Cmd.none )
 
-        Spawn ->
-            ( { model | bots = createBot spawnPoint :: model.bots }, Cmd.none )
+        SpawnTick ->
+            ( model, Random.generate Spawn Bots.botTypeGenerator )
 
-        Attack ->
+        Spawn botType ->
+            ( { model | bots = createBot spawnPoint botType :: model.bots }, Cmd.none )
+
+        AttackTick ->
             if Lists.any (\p -> p.health <= 0) model.bots then
                 ( { model | cash = model.cash + Bots.worth, bots = attackBots model.bots model.towers, towers = attackTowers model.towers model.bots }, Cmd.none )
 
@@ -406,6 +414,8 @@ view model =
               --, Html.button [ onClick Extend ] [ Html.text "Extend" ]
               Html.text ("Cash: " ++ String.fromInt model.cash)
             , Html.text (" Health: " ++ String.fromInt model.health)
+            , Html.text (" Build tower: " ++ String.fromInt Towers.buildCost)
+            , Html.text (" Repair tower: " ++ String.fromInt Towers.repairCost)
             , div []
                 [ Svg.svg
                     [ viewBox (String.concat [ "0 0 ", String.fromInt (width * elementSize), " ", String.fromInt (height * elementSize) ])
@@ -422,7 +432,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model.state of
         Running ->
-            Sub.batch [ Time.every Bots.refreshRate (\_ -> Tick), Time.every Bots.spawnRate (\_ -> Spawn), Time.every Towers.attackSpeed (\_ -> Attack) ]
+            Sub.batch [ Time.every Bots.refreshRate (\_ -> MoveTick), Time.every Bots.spawnRate (\_ -> SpawnTick), Time.every Towers.attackSpeed (\_ -> AttackTick) ]
 
         Paused ->
             Sub.none

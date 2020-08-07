@@ -20,6 +20,10 @@ toPixels : Int -> Int
 toPixels x =
     x * elementSize
 
+toPixelPoint : Point -> Point
+toPixelPoint p =
+    Point (toPixels (getX p)) (toPixels (getY p))
+
 isInside : Point -> Point -> Int -> Bool
 isInside towerPos botPos offset =
     isBetween (getX towerPos) (getX botPos) offset && isBetween (getY towerPos) (getY botPos) offset
