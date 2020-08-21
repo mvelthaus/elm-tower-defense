@@ -2,9 +2,11 @@ module TowerDefense exposing (main)
 
 import Bots exposing (Bot, Direction, createBot, move)
 import Browser
-import Html exposing (Html, div)
+import Browser.Events
+import Html exposing (Html, div, p)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import Json.Decode exposing (Decoder, field, string)
 import List
 import Lists
 import Points exposing (Point, elementSize, getX, getY, isBetween, isInside, toPixelPoint, toPixels)
@@ -12,7 +14,7 @@ import Random
 import Selections exposing (PitchElement)
 import String exposing (fromFloat, fromInt)
 import Svg exposing (Svg)
-import Svg.Attributes exposing (fill, fillOpacity, viewBox, x, y)
+import Svg.Attributes exposing (fill, fillOpacity, stroke, strokeWidth, viewBox, x, y)
 import Svg.Events exposing (onClick)
 import Time exposing (every)
 import Towers exposing (Tower, create)
@@ -28,6 +30,11 @@ collidingOffset =
     round (toFloat elementSize * 0.4)
 
 
+buttonSize : Int
+buttonSize =
+    elementSize * 2
+
+
 type Msg
     = Click Point
     | MouseOver Point
@@ -37,10 +44,19 @@ type Msg
     | SpawnTick
     | Spawn Bots.BotType
     | AttackTick
+    | Action TowerAction
+    | Pause
+    | Other
+
+
+type TowerAction
+    = Build
+    | Repair
+    | Delete
 
 
 type State
-    = Running
+    = Running Float
     | Lost
     | Paused
 
@@ -52,12 +68,26 @@ type alias Model =
     , health : Int
     , bots : List Bots.Bot
     , state : State
+    , selection : Point
+    , preSelection : Point
+    , botsSpawned : Int
     }
 
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { selectionLayer = buildPitch width height, towers = [], cash = 200, health = 10, bots = [ createBot spawnPoint Bots.Default ], state = Running }, Cmd.none )
+    ( { selectionLayer = buildPitch width height
+      , towers = []
+      , cash = 200
+      , health = 10
+      , bots = []
+      , state = Paused
+      , selection = Points.Point (widthInPixels // 2) (heightInPixels // 2)
+      , preSelection = Points.Point 0 0
+      , botsSpawned = 0
+      }
+    , Cmd.none
+    )
 
 
 buildPitch : Int -> Int -> List PitchElement
@@ -238,9 +268,9 @@ mark p opacity c l =
             []
 
 
-pitchToSvg : List PitchElement -> List Tower -> List Bot -> List (Svg Msg)
-pitchToSvg selection tower bot =
-    drawBackground :: List.map drawTower tower ++ List.map drawBot bot ++ List.map drawRect selection
+pitchToSvg : Model -> List (Svg Msg)
+pitchToSvg { selectionLayer, towers, bots, selection, preSelection } =
+    drawBackground :: List.map drawTower towers ++ List.map (\p -> drawSelectionBorder selection p "#eba817") selectionLayer ++ List.map drawBot bots ++ List.map drawRect selectionLayer
 
 
 drawBackground : Svg Msg
@@ -304,7 +334,7 @@ drawTower { position, health, attackPoint } =
             []
             :: drawAttackLine position attackPoint
             ++ [ Svg.g
-                    [Svg.Attributes.transform (Towers.getRotation attackPoint (toPixelPoint position))
+                    [ Svg.Attributes.transform (Towers.getRotation attackPoint (toPixelPoint position))
                     ]
                     [ Svg.image
                         [ x (fromInt (getX position * elementSize))
@@ -312,7 +342,6 @@ drawTower { position, health, attackPoint } =
                         , Svg.Attributes.width (fromInt elementSize)
                         , Svg.Attributes.height (fromInt elementSize)
                         , Svg.Attributes.xlinkHref "Graphics/canon.png"
-                        {- , Svg.Attributes.transform (Towers.getRotation attackPoint (toPixelPoint position)) -}
                         ]
                         []
                     , Svg.circle
@@ -323,17 +352,28 @@ drawTower { position, health, attackPoint } =
                         ]
                         []
                     ]
-
-               --    , Svg.rect
-               --         [ x (fromFloat (toFloat (toPixels (getX position)) + toFloat elementSize * 0.8))
-               --         , y (fromInt (toPixels (getY position)))
-               --         , Svg.Attributes.width (fromFloat (toFloat elementSize * 0.1))
-               --         , Svg.Attributes.height (fromFloat (toFloat elementSize * Towers.healthPointsPercent health * 0.8))
-               --         , fill (Towers.updateColor health)
-               --         ]
-               --         []
                ]
         )
+
+
+drawSelectionBorder : Point -> PitchElement -> String -> Svg Msg
+drawSelectionBorder p { position } color =
+    if p == position then
+        Svg.rect
+            [ x (fromInt (toPixels (getX position)))
+            , y (fromInt (toPixels (getY position)))
+            , Svg.Attributes.rx "10"
+            , Svg.Attributes.ry "10"
+            , Svg.Attributes.width (fromInt elementSize)
+            , Svg.Attributes.height (fromInt elementSize)
+            , strokeWidth "3"
+            , Svg.Attributes.stroke color
+            , Svg.Attributes.fillOpacity "0"
+            ]
+            []
+
+    else
+        Svg.rect [] []
 
 
 drawBot : Bot -> Svg Msg
@@ -360,24 +400,107 @@ drawBot { position, health, botType, direction } =
         ]
 
 
+keyDecoder : Decoder Msg
+keyDecoder =
+    Json.Decode.map toMsg (field "key" Json.Decode.string)
+
+
+
+-- translate input strings to Msg
+
+
+toMsg : String -> Msg
+toMsg s =
+    case s of
+        "q" ->
+            Action Build
+
+        "w" ->
+            Action Repair
+
+        "e" ->
+            Action Delete
+
+        " " ->
+            Pause
+
+        _ ->
+            Other
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Click pos ->
-            if model.cash >= Towers.buildCost && Lists.any (\p -> pos == p.position) model.towers == False then
-                ( { model | towers = create pos :: model.towers, cash = model.cash - Towers.buildCost }, Cmd.none )
+            ( { model | selection = pos }, Cmd.none )
 
-            else if model.cash >= Towers.repairCost && Lists.any (\p -> pos == p.position) model.towers then
-                ( { model | towers = Towers.repair pos model.towers, cash = model.cash - Towers.repairCost }, Cmd.none )
+        MouseOver pos ->
+            ( { model | selectionLayer = mark pos 0.1 hoverColor model.selectionLayer }, Cmd.none )
+
+        --( { model | preSelection = pos }, Cmd.none )
+        MouseOut pos ->
+            ( { model | selectionLayer = mark pos 0.0 defaultColor model.selectionLayer }, Cmd.none )
+
+        --( model, Cmd.none )
+        Action towerAction ->
+            updateAction towerAction model
+
+        _ ->
+            updateState msg model
+
+
+updateState : Msg -> Model -> ( Model, Cmd Msg )
+updateState msg model =
+    case model.state of
+        Running _ ->
+            if model.health <= 0 then
+                ( { model | state = Lost }, Cmd.none )
+
+            else
+                updateRunning msg model
+
+        Paused ->
+            case msg of
+                Pause ->
+                    ( { model | state = Running (Bots.spawnRate 0) }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+updateAction : TowerAction -> Model -> ( Model, Cmd Msg )
+updateAction towerAction model =
+    case towerAction of
+        Build ->
+            if model.cash >= Towers.buildCost && Lists.any (\p -> model.selection == p.position) model.towers == False then
+                ( { model | towers = create model.selection :: model.towers, cash = model.cash - Towers.buildCost }, Cmd.none )
 
             else
                 ( model, Cmd.none )
 
-        MouseOver pos ->
-            ( { model | selectionLayer = mark pos 0.3 hoverColor model.selectionLayer }, Cmd.none )
+        Repair ->
+            if model.cash >= Towers.repairCost && Lists.any (\p -> model.selection == p.position) model.towers then
+                ( { model | towers = Towers.repair model.selection model.towers, cash = model.cash - Towers.repairCost }, Cmd.none )
 
-        MouseOut pos ->
-            ( { model | selectionLayer = mark pos 0.0 defaultColor model.selectionLayer }, Cmd.none )
+            else
+                ( model, Cmd.none )
+
+        Delete ->
+            if Lists.any (\p -> model.selection == p.position) model.towers then
+                ( { model | cash = model.cash + 5, towers = Towers.delete model.selection model.towers }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
+
+updateRunning : Msg -> Model -> ( Model, Cmd Msg )
+updateRunning msg model =
+    case msg of
+        Pause ->
+            ( { model | state = Paused }, Cmd.none )
 
         MoveTick ->
             ( model, Random.generate Move Bots.directionGenerator )
@@ -393,7 +516,7 @@ update msg model =
             ( model, Random.generate Spawn Bots.botTypeGenerator )
 
         Spawn botType ->
-            ( { model | bots = createBot spawnPoint botType :: model.bots }, Cmd.none )
+            ( { model | state = Running (Bots.spawnRate model.botsSpawned), bots = createBot spawnPoint botType :: model.bots, botsSpawned = model.botsSpawned + 1 }, Cmd.none )
 
         AttackTick ->
             if Lists.any (\p -> p.health <= 0) model.bots then
@@ -402,40 +525,81 @@ update msg model =
             else
                 ( { model | bots = attackBots model.bots model.towers, towers = attackTowers model.towers model.bots }, Cmd.none )
 
+        _ ->
+            ( model, Cmd.none )
+
 
 view : Model -> Html Msg
 view model =
-    div [ Html.Attributes.style "width" "80%", Html.Attributes.style "margin-right" "auto", Html.Attributes.style "margin-left" "auto" ]
-        [ div [ Html.Attributes.style "height" "250px" ]
-            [ {- Html.button [ onClick (Click 5) ] [ Html.text "Up" ] -}
-              -- , Html.button [ onClick (Dir Left) ] [ Html.text "Left" ]
-              -- , Html.button [ onClick (Dir Right) ] [ Html.text "Right" ]
-              -- , Html.button [ onClick (Dir Down) ] [ Html.text "Down" ]
-              --, Html.button [ onClick Extend ] [ Html.text "Extend" ]
-              Html.text ("Cash: " ++ String.fromInt model.cash)
-            , Html.text (" Health: " ++ String.fromInt model.health)
-            , Html.text (" Build tower: " ++ String.fromInt Towers.buildCost)
-            , Html.text (" Repair tower: " ++ String.fromInt Towers.repairCost)
-            , div []
-                [ Svg.svg
-                    [ viewBox (String.concat [ "0 0 ", String.fromInt (width * elementSize), " ", String.fromInt (height * elementSize) ])
-                    ]
-                    (pitchToSvg model.selectionLayer model.towers model.bots)
+    div
+        [ style "background-color" "#89A4A6"
+        , style "display" "grid"
+        , style "grid-template-columns" "1fr 15fr 1fr"
+        , style "grid-template-rows" "1fr 25fr 1fr"
+        , style "height" "100%"
+        ]
+        [ div [ style "grid-column" "1 / 2", style "grid-row" "2 / 3", style "align-self" "start", style "justify-self" "center" ]
+            [ drawImageWithText "cash.png" (String.fromInt model.cash ++ " $") "2em" "70%" Other
+            ]
+        , div [ style "grid-column" "3 / 4", style "grid-row" "2 / 3", style "align-self" "end", style "justify-self" "center" ]
+            [ drawImageWithText "health.png" (String.fromInt model.health) "2em" "70%" Other
+            ]
+        , div [ style "grid-column" "1 / 2", style "grid-row" "2 / 3", style "place-self" "center" ]
+            [ Html.button [ Html.Events.onClick Pause ] [ Html.text "Start" ] ]
+        , div [ style "grid-column" "2 / 3", style "grid-row" "2 / 3", style "place-self" "center-stretch" ]
+            [ Svg.svg
+                [ viewBox (String.concat [ "0 0 ", String.fromInt (width * elementSize), " ", String.fromInt (height * elementSize) ])
                 ]
+                (pitchToSvg model)
+            ]
+        , div [ style "grid-column" "2 / 3", style "grid-row" "2 / 3", style "place-self" "center" ] (setMessage model.state)
+        , div [ style "grid-column" "3 / 4", style "grid-row" "2 / 3", style "align-self" "start", style "justify-self" "center" ]
+            [ drawActionImage "create.png" ("Build (-" ++ String.fromInt Towers.buildCost ++ ")") (Action Build)
+            , drawActionImage "repair.png" ("Repair (-" ++ String.fromInt Towers.repairCost ++ ")") (Action Repair)
+            , drawActionImage "delete.png" ("Destroy (+" ++ String.fromInt 5 ++ ")") (Action Delete)
+            ]
+        ]
+
+
+drawActionImage : String -> String -> Msg -> Html Msg
+drawActionImage graphicPath text msg =
+    drawImageWithText graphicPath text "0.8em" "auto" msg
+
+
+drawImageWithText : String -> String -> String -> String -> Msg -> Html Msg
+drawImageWithText graphicPath text fontSize imgWidth msg =
+    Html.figure [ style "padding" "0px", style "margin" "auto", style "color" "white" ]
+        [ Html.img [ Html.Attributes.src ("Graphics/" ++ graphicPath), Html.Events.onClick msg, style "width" imgWidth, style "display" "block", style "margin" "auto" ] []
+        , Html.figcaption [ style "text-align" "center", style "font-size" fontSize ] [ Html.text text ]
+        ]
+
+
+setMessage : State -> List (Html Msg)
+setMessage state =
+    case state of
+        Running _ ->
+            [ Html.text "" ]
+
+        Lost ->
+            [ p [ style "text-align" "center", style "font-size" "10em" ] [ Html.text "Game Over" ]
+            , p [ style "text-align" "center" ] [ Html.text "Reload (Press F5) to play again" ]
             ]
 
-        -- , setMessage model.state
-        ]
+        Paused ->
+            [ p [ style "color" "grey",style "text-align" "center", style "font-size" "10em" ] [ Html.text "Paused" ]
+            , p [ style "text-align" "center" ] [ Html.text "Click \"Start\" or press space when you're ready" ]
+            ]
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model.state of
-        Running ->
-            Sub.batch [ Time.every Bots.refreshRate (\_ -> MoveTick), Time.every Bots.spawnRate (\_ -> SpawnTick), Time.every Towers.attackSpeed (\_ -> AttackTick) ]
+        Running spawnrate ->
+            -- Sub.batch [ Browser.Events.onKeyDown keyDecoder, Time.every Bots.refreshRate (\_ -> MoveTick), Time.every spawnrate (\_ -> SpawnTick), Time.every Towers.attackSpeed (\_ -> AttackTick) ]
+            Sub.batch [ Browser.Events.onKeyDown keyDecoder, Browser.Events.onAnimationFrame (\_ -> MoveTick), Time.every spawnrate (\_ -> SpawnTick), Time.every Towers.attackSpeed (\_ -> AttackTick) ]
 
         Paused ->
-            Sub.none
+            Browser.Events.onKeyDown keyDecoder
 
         Lost ->
             Sub.none

@@ -69,6 +69,18 @@ repair p towers =
         [] ->
             []
 
+delete : Point -> List Tower -> List Tower
+delete p towers =
+    case towers of
+        x :: xs ->
+            if p == x.position then
+                delete p xs
+
+            else
+                x :: delete p xs
+
+        [] ->
+            []
 
 updateColor : Float -> String
 updateColor health =

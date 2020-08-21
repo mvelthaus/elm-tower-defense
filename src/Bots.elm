@@ -35,10 +35,16 @@ refreshRate =
     30
 
 
-spawnRate : Float
-spawnRate =
-    5000
-
+spawnRate : Int -> Float
+spawnRate spawned=
+    if spawned < 3 then
+        5000
+    else if spawned < 8 then
+        4000
+    else if spawned < 10 then
+        3000
+    else
+        2000
 
 moveStep : Int
 moveStep =
