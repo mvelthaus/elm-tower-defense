@@ -84,7 +84,7 @@ initialModel : ( Model, Cmd Msg )
 initialModel =
     ( { selectionLayer = buildPitch width height
       , towers = []
-      , cash = 80
+      , cash = 50
       , health = 10
       , bots = []
       , state = Prepare True

@@ -5241,19 +5241,19 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$TowerDefense$Paused = {$: 'Paused'};
 var $author$project$Points$Point = F2(
 	function (a, b) {
 		return {$: 'Point', a: a, b: b};
 	});
-var $author$project$TowerDefense$defaultColor = 'white';
+var $author$project$TowerDefense$Prepare = function (a) {
+	return {$: 'Prepare', a: a};
+};
 var $elm$core$Basics$ge = _Utils_ge;
 var $author$project$TowerDefense$buildRow = F2(
 	function (column, row) {
 		return (column >= 0) ? A2(
 			$elm$core$List$cons,
 			{
-				color: $author$project$TowerDefense$defaultColor,
 				opacity: 0.0,
 				position: A2($author$project$Points$Point, column, row)
 			},
@@ -5282,18 +5282,21 @@ var $author$project$TowerDefense$initialModel = _Utils_Tuple2(
 	{
 		bots: _List_Nil,
 		botsSpawned: 0,
-		cash: 200,
+		cash: 80,
 		health: 10,
 		preSelection: A2($author$project$Points$Point, 0, 0),
+		score: 0,
 		selection: A2($author$project$Points$Point, ($author$project$TowerDefense$widthInPixels / 2) | 0, ($author$project$TowerDefense$heightInPixels / 2) | 0),
 		selectionLayer: A2($author$project$TowerDefense$buildPitch, $author$project$TowerDefense$width, $author$project$TowerDefense$height),
-		state: $author$project$TowerDefense$Paused,
+		state: $author$project$TowerDefense$Prepare(true),
+		time: 5,
 		towers: _List_Nil
 	},
 	$elm$core$Platform$Cmd$none);
 var $author$project$TowerDefense$AttackTick = {$: 'AttackTick'};
 var $author$project$TowerDefense$MoveTick = {$: 'MoveTick'};
 var $author$project$TowerDefense$SpawnTick = {$: 'SpawnTick'};
+var $author$project$TowerDefense$TimerTick = {$: 'TimerTick'};
 var $author$project$Towers$attackSpeed = 60;
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$time$Time$Every = F2(
@@ -6090,31 +6093,32 @@ var $author$project$TowerDefense$subscriptions = function (model) {
 							return $author$project$TowerDefense$AttackTick;
 						})
 					]));
+		case 'Prepare':
+			if (!_v0.a) {
+				return $elm$core$Platform$Sub$batch(
+					_List_fromArray(
+						[
+							A2(
+							$elm$time$Time$every,
+							1000,
+							function (_v4) {
+								return $author$project$TowerDefense$TimerTick;
+							}),
+							$elm$browser$Browser$Events$onKeyDown($author$project$TowerDefense$keyDecoder)
+						]));
+			} else {
+				return $elm$core$Platform$Sub$batch(
+					_List_fromArray(
+						[
+							$elm$browser$Browser$Events$onKeyDown($author$project$TowerDefense$keyDecoder)
+						]));
+			}
 		case 'Paused':
 			return $elm$browser$Browser$Events$onKeyDown($author$project$TowerDefense$keyDecoder);
 		default:
 			return $elm$core$Platform$Sub$none;
 	}
 };
-var $author$project$TowerDefense$hoverColor = 'grey';
-var $author$project$TowerDefense$mark = F4(
-	function (p, opacity, c, l) {
-		if (l.b) {
-			var x = l.a;
-			var xs = l.b;
-			return _Utils_eq(x.position, p) ? A2(
-				$elm$core$List$cons,
-				_Utils_update(
-					x,
-					{color: c, opacity: opacity}),
-				A4($author$project$TowerDefense$mark, p, opacity, c, xs)) : A2(
-				$elm$core$List$cons,
-				x,
-				A4($author$project$TowerDefense$mark, p, opacity, c, xs));
-		} else {
-			return _List_Nil;
-		}
-	});
 var $author$project$Lists$any = F2(
 	function (p, l) {
 		return A3(
@@ -6127,10 +6131,9 @@ var $author$project$Lists$any = F2(
 			l);
 	});
 var $author$project$Towers$buildCost = 10;
-var $author$project$Towers$color = 'green';
-var $author$project$Towers$healthPoints = 100;
+var $author$project$Towers$damage = 1;
 var $author$project$Towers$create = function (p) {
-	return {attackPoint: $elm$core$Maybe$Nothing, color: $author$project$Towers$color, health: $author$project$Towers$healthPoints, position: p};
+	return {attackPoint: $elm$core$Maybe$Nothing, damage: $author$project$Towers$damage, position: p};
 };
 var $author$project$Towers$delete = F2(
 	function (p, towers) {
@@ -6165,7 +6168,7 @@ var $author$project$Towers$repair = F2(
 				$elm$core$List$cons,
 				_Utils_update(
 					x,
-					{health: $author$project$Towers$healthPoints}),
+					{damage: $author$project$Towers$damage}),
 				A2($author$project$Towers$repair, p, xs)) : A2(
 				$elm$core$List$cons,
 				x,
@@ -6225,150 +6228,43 @@ var $author$project$TowerDefense$updateAction = F2(
 					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
 	});
+var $author$project$Bots$Default = {$: 'Default'};
 var $author$project$TowerDefense$Lost = {$: 'Lost'};
 var $author$project$TowerDefense$Running = function (a) {
 	return {$: 'Running', a: a};
 };
+var $author$project$Bots$Right = {$: 'Right'};
+var $author$project$Bots$healthPoints = 100;
+var $author$project$Bots$getHealth = function (botType) {
+	if (botType.$ === 'Default') {
+		return $author$project$Bots$healthPoints;
+	} else {
+		return $author$project$Bots$healthPoints * 2;
+	}
+};
+var $author$project$Bots$createBot = F2(
+	function (start, botType) {
+		return {
+			botType: botType,
+			collided: false,
+			color: 'black',
+			direction: $author$project$Bots$Right,
+			health: $author$project$Bots$getHealth(botType),
+			position: start
+		};
+	});
+var $author$project$TowerDefense$spawnPoint = A2($author$project$Points$Point, 0, (($author$project$TowerDefense$height * $author$project$Points$elementSize) / 2) | 0);
 var $author$project$Bots$spawnRate = function (spawned) {
-	return (spawned < 3) ? 5000 : ((spawned < 8) ? 4000 : ((spawned < 10) ? 3000 : 2000));
+	return (((5 / (1 + ((spawned / 7) | 0))) * 2000) > 200) ? ((5 / (1 + ((spawned / 7) | 0))) * 2000) : 200;
 };
 var $author$project$TowerDefense$Move = function (a) {
 	return {$: 'Move', a: a};
 };
+var $author$project$TowerDefense$Paused = {$: 'Paused'};
 var $author$project$TowerDefense$Spawn = function (a) {
 	return {$: 'Spawn', a: a};
 };
-var $author$project$Lists$doubleMap = F4(
-	function (fBool, fA, lA, lB) {
-		doubleMap:
-		while (true) {
-			if (lA.b) {
-				var x = lA.a;
-				var xs = lA.b;
-				if (fBool(x)) {
-					var $temp$fBool = fBool,
-						$temp$fA = fA,
-						$temp$lA = xs,
-						$temp$lB = lB;
-					fBool = $temp$fBool;
-					fA = $temp$fA;
-					lA = $temp$lA;
-					lB = $temp$lB;
-					continue doubleMap;
-				} else {
-					return A2(
-						$elm$core$List$cons,
-						A2(fA, lB, x),
-						A4($author$project$Lists$doubleMap, fBool, fA, xs, lB));
-				}
-			} else {
-				return _List_Nil;
-			}
-		}
-	});
-var $author$project$Towers$damage = 0.1;
-var $author$project$Points$getX = function (_v0) {
-	var x = _v0.a;
-	return x;
-};
-var $author$project$Points$getY = function (_v0) {
-	var y = _v0.b;
-	return y;
-};
-var $author$project$Points$isBetween = F3(
-	function (x, i, o) {
-		return (_Utils_cmp(
-			i,
-			$author$project$Points$toPixels(x) - o) > -1) && (_Utils_cmp(
-			i,
-			($author$project$Points$toPixels(x) + $author$project$Points$elementSize) + o) < 1);
-	});
-var $author$project$Points$isInside = F3(
-	function (towerPos, botPos, offset) {
-		return A3(
-			$author$project$Points$isBetween,
-			$author$project$Points$getX(towerPos),
-			$author$project$Points$getX(botPos),
-			offset) && A3(
-			$author$project$Points$isBetween,
-			$author$project$Points$getY(towerPos),
-			$author$project$Points$getY(botPos),
-			offset);
-	});
-var $elm$core$Basics$round = _Basics_round;
-var $author$project$Towers$range = $elm$core$Basics$round($author$project$Points$elementSize);
-var $author$project$TowerDefense$updateBotHealth = F2(
-	function (towers, bot) {
-		return A2(
-			$author$project$Lists$any,
-			function (p) {
-				return A3($author$project$Points$isInside, p.position, bot.position, $author$project$Towers$range);
-			},
-			towers) ? _Utils_update(
-			bot,
-			{health: bot.health - $author$project$Towers$damage}) : bot;
-	});
-var $author$project$TowerDefense$attackBots = F2(
-	function (bots, towers) {
-		return A4(
-			$author$project$Lists$doubleMap,
-			function (p) {
-				return p.health <= 0;
-			},
-			$author$project$TowerDefense$updateBotHealth,
-			bots,
-			towers);
-	});
-var $author$project$TowerDefense$addAttackPoint = F2(
-	function (bots, tower) {
-		addAttackPoint:
-		while (true) {
-			if (bots.b) {
-				var x = bots.a;
-				var xs = bots.b;
-				if (A3($author$project$Points$isInside, tower.position, x.position, $author$project$Towers$range)) {
-					return $elm$core$Maybe$Just(x.position);
-				} else {
-					var $temp$bots = xs,
-						$temp$tower = tower;
-					bots = $temp$bots;
-					tower = $temp$tower;
-					continue addAttackPoint;
-				}
-			} else {
-				return $elm$core$Maybe$Nothing;
-			}
-		}
-	});
-var $author$project$TowerDefense$updateTowerHealth = F2(
-	function (bots, tower) {
-		return A2(
-			$author$project$Lists$any,
-			function (p) {
-				return A3($author$project$Points$isInside, tower.position, p.position, $author$project$Towers$range);
-			},
-			bots) ? _Utils_update(
-			tower,
-			{
-				attackPoint: A2($author$project$TowerDefense$addAttackPoint, bots, tower),
-				health: tower.health - ($author$project$Towers$damage * 2)
-			}) : _Utils_update(
-			tower,
-			{attackPoint: $elm$core$Maybe$Nothing});
-	});
-var $author$project$TowerDefense$attackTowers = F2(
-	function (towers, bots) {
-		return A4(
-			$author$project$Lists$doubleMap,
-			function (p) {
-				return p.health <= 0;
-			},
-			$author$project$TowerDefense$updateTowerHealth,
-			towers,
-			bots);
-	});
 var $author$project$Bots$Boss = {$: 'Boss'};
-var $author$project$Bots$Default = {$: 'Default'};
 var $elm$core$Basics$negate = function (n) {
 	return -n;
 };
@@ -6470,31 +6366,11 @@ var $elm$random$Random$weighted = F2(
 	});
 var $author$project$Bots$botTypeGenerator = A2(
 	$elm$random$Random$weighted,
-	_Utils_Tuple2(80, $author$project$Bots$Default),
+	_Utils_Tuple2(65, $author$project$Bots$Default),
 	_List_fromArray(
 		[
-			_Utils_Tuple2(20, $author$project$Bots$Boss)
+			_Utils_Tuple2(35, $author$project$Bots$Boss)
 		]));
-var $author$project$Bots$Right = {$: 'Right'};
-var $author$project$Bots$healthPoints = 10;
-var $author$project$Bots$getHealth = function (botType) {
-	if (botType.$ === 'Default') {
-		return $author$project$Bots$healthPoints;
-	} else {
-		return $author$project$Bots$healthPoints * 2;
-	}
-};
-var $author$project$Bots$createBot = F2(
-	function (start, botType) {
-		return {
-			botType: botType,
-			collided: false,
-			color: 'black',
-			direction: $author$project$Bots$Right,
-			health: $author$project$Bots$getHealth(botType),
-			position: start
-		};
-	});
 var $author$project$Bots$Down = {$: 'Down'};
 var $author$project$Bots$Up = {$: 'Up'};
 var $elm$random$Random$addOne = function (value) {
@@ -6577,7 +6453,24 @@ var $elm$random$Random$generate = F2(
 			$elm$random$Random$Generate(
 				A2($elm$random$Random$map, tagger, generator)));
 	});
+var $author$project$Points$getX = function (_v0) {
+	var x = _v0.a;
+	return x;
+};
+var $elm$core$Basics$round = _Basics_round;
 var $author$project$TowerDefense$collidingOffset = $elm$core$Basics$round($author$project$Points$elementSize * 0.4);
+var $author$project$Points$getY = function (_v0) {
+	var y = _v0.b;
+	return y;
+};
+var $author$project$Points$isBetween = F3(
+	function (x, i, o) {
+		return (_Utils_cmp(
+			i,
+			$author$project$Points$toPixels(x) - o) > -1) && (_Utils_cmp(
+			i,
+			($author$project$Points$toPixels(x) + $author$project$Points$elementSize) + o) < 1);
+	});
 var $author$project$TowerDefense$collideX = F2(
 	function (towerPos, botPos) {
 		return _Utils_eq(
@@ -6721,8 +6614,142 @@ var $author$project$TowerDefense$moveBots = F3(
 			}
 		}
 	});
-var $author$project$TowerDefense$spawnPoint = A2($author$project$Points$Point, 0, (($author$project$TowerDefense$height * $author$project$Points$elementSize) / 2) | 0);
-var $author$project$Bots$worth = 3;
+var $author$project$Points$isInside = F3(
+	function (towerPos, botPos, offset) {
+		return A3(
+			$author$project$Points$isBetween,
+			$author$project$Points$getX(towerPos),
+			$author$project$Points$getX(botPos),
+			offset) && A3(
+			$author$project$Points$isBetween,
+			$author$project$Points$getY(towerPos),
+			$author$project$Points$getY(botPos),
+			offset);
+	});
+var $author$project$Towers$range = $elm$core$Basics$round($author$project$Points$elementSize);
+var $author$project$TowerDefense$updateBot = F2(
+	function (b, t) {
+		return A3($author$project$Points$isInside, t.position, b.position, $author$project$Towers$range) ? _Utils_update(
+			b,
+			{health: b.health - t.damage}) : b;
+	});
+var $author$project$TowerDefense$attackBots = F2(
+	function (bots, towers) {
+		attackBots:
+		while (true) {
+			if (towers.b) {
+				var x = towers.a;
+				var xs = towers.b;
+				var $temp$bots = A2(
+					$elm$core$List$map,
+					function (p) {
+						return A2($author$project$TowerDefense$updateBot, p, x);
+					},
+					bots),
+					$temp$towers = xs;
+				bots = $temp$bots;
+				towers = $temp$towers;
+				continue attackBots;
+			} else {
+				return bots;
+			}
+		}
+	});
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $author$project$TowerDefense$destroyTowers = function (towers) {
+	return A2(
+		$elm$core$List$filter,
+		function (p) {
+			return p.damage > 0;
+		},
+		towers);
+};
+var $author$project$Towers$damageDecrease = 0.002;
+var $author$project$Towers$calculateDamage = function (dmg) {
+	return (dmg <= 0) ? 0 : (dmg - $author$project$Towers$damageDecrease);
+};
+var $author$project$TowerDefense$updateTower = F2(
+	function (t, b) {
+		return A3($author$project$Points$isInside, t.position, b.position, $author$project$Towers$range) ? _Utils_update(
+			t,
+			{
+				attackPoint: $elm$core$Maybe$Just(b.position),
+				damage: $author$project$Towers$calculateDamage(t.damage)
+			}) : t;
+	});
+var $author$project$TowerDefense$attackTowers = F2(
+	function (towers, bots) {
+		attackTowers:
+		while (true) {
+			if (bots.b) {
+				var x = bots.a;
+				var xs = bots.b;
+				var $temp$towers = A2(
+					$elm$core$List$map,
+					function (p) {
+						return A2($author$project$TowerDefense$updateTower, p, x);
+					},
+					towers),
+					$temp$bots = xs;
+				towers = $temp$towers;
+				bots = $temp$bots;
+				continue attackTowers;
+			} else {
+				return $author$project$TowerDefense$destroyTowers(towers);
+			}
+		}
+	});
+var $author$project$TowerDefense$killBots = function (bots) {
+	return A2(
+		$elm$core$List$filter,
+		function (p) {
+			return p.health > 0;
+		},
+		bots);
+};
+var $author$project$Towers$resetAttackPoint = function (towers) {
+	return A2(
+		$elm$core$List$map,
+		function (p) {
+			return _Utils_update(
+				p,
+				{attackPoint: $elm$core$Maybe$Nothing});
+		},
+		towers);
+};
+var $author$project$Bots$worth = 5;
+var $author$project$TowerDefense$updateAttack = function (model) {
+	return A2(
+		$author$project$Lists$any,
+		function (p) {
+			return p.health <= 0;
+		},
+		model.bots) ? _Utils_update(
+		model,
+		{
+			bots: $author$project$TowerDefense$killBots(model.bots),
+			cash: model.cash + $author$project$Bots$worth,
+			score: model.score + 1
+		}) : _Utils_update(
+		model,
+		{
+			bots: A2($author$project$TowerDefense$attackBots, model.bots, model.towers),
+			towers: A2(
+				$author$project$TowerDefense$attackTowers,
+				$author$project$Towers$resetAttackPoint(model.towers),
+				model.bots)
+		});
+};
 var $author$project$TowerDefense$updateRunning = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6779,26 +6806,8 @@ var $author$project$TowerDefense$updateRunning = F2(
 						}),
 					$elm$core$Platform$Cmd$none);
 			case 'AttackTick':
-				return A2(
-					$author$project$Lists$any,
-					function (p) {
-						return p.health <= 0;
-					},
-					model.bots) ? _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							bots: A2($author$project$TowerDefense$attackBots, model.bots, model.towers),
-							cash: model.cash + $author$project$Bots$worth,
-							towers: A2($author$project$TowerDefense$attackTowers, model.towers, model.bots)
-						}),
-					$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							bots: A2($author$project$TowerDefense$attackBots, model.bots, model.towers),
-							towers: A2($author$project$TowerDefense$attackTowers, model.towers, model.bots)
-						}),
+				return _Utils_Tuple2(
+					$author$project$TowerDefense$updateAttack(model),
 					$elm$core$Platform$Cmd$none);
 			default:
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -6821,11 +6830,41 @@ var $author$project$TowerDefense$updateState = F2(
 							model,
 							{
 								state: $author$project$TowerDefense$Running(
-									$author$project$Bots$spawnRate(0))
+									$author$project$Bots$spawnRate(model.botsSpawned))
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
+			case 'Prepare':
+				switch (msg.$) {
+					case 'Start':
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									state: $author$project$TowerDefense$Prepare(false)
+								}),
+							$elm$core$Platform$Cmd$none);
+					case 'TimerTick':
+						return (model.time <= 0) ? _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									bots: _List_fromArray(
+										[
+											A2($author$project$Bots$createBot, $author$project$TowerDefense$spawnPoint, $author$project$Bots$Default)
+										]),
+									state: $author$project$TowerDefense$Running(
+										$author$project$Bots$spawnRate(1))
+								}),
+							$elm$core$Platform$Cmd$none) : _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{time: model.time - 1}),
+							$elm$core$Platform$Cmd$none);
+					default:
+						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			default:
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -6840,24 +6879,6 @@ var $author$project$TowerDefense$update = F2(
 					_Utils_update(
 						model,
 						{selection: pos}),
-					$elm$core$Platform$Cmd$none);
-			case 'MouseOver':
-				var pos = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							selectionLayer: A4($author$project$TowerDefense$mark, pos, 0.1, $author$project$TowerDefense$hoverColor, model.selectionLayer)
-						}),
-					$elm$core$Platform$Cmd$none);
-			case 'MouseOut':
-				var pos = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							selectionLayer: A4($author$project$TowerDefense$mark, pos, 0.0, $author$project$TowerDefense$defaultColor, model.selectionLayer)
-						}),
 					$elm$core$Platform$Cmd$none);
 			case 'Action':
 				var towerAction = msg.a;
@@ -6949,6 +6970,59 @@ var $author$project$TowerDefense$drawActionImage = F3(
 	function (graphicPath, text, msg) {
 		return A5($author$project$TowerDefense$drawImageWithText, graphicPath, text, '0.8em', 'auto', msg);
 	});
+var $author$project$TowerDefense$getPauseButtonText = function (state) {
+	if (state.$ === 'Paused') {
+		return 'Continue';
+	} else {
+		return 'Pause';
+	}
+};
+var $elm$core$String$fromFloat = _String_fromNumber;
+var $elm$html$Html$p = _VirtualDom_node('p');
+var $author$project$TowerDefense$getTimerText = F2(
+	function (state, time) {
+		if (state.$ === 'Prepare') {
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$p,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'text-align', 'center')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Time left to prepare')
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'text-align', 'center'),
+							A2($elm$html$Html$Attributes$style, 'font-size', '3em')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
+							$elm$core$String$fromFloat(time))
+						]))
+				]);
+		} else {
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$p,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'text-align', 'center')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Attack started')
+						]))
+				]);
+		}
+	});
 var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
 var $elm$svg$Svg$Attributes$height = _VirtualDom_attribute('height');
 var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
@@ -6969,7 +7043,6 @@ var $author$project$TowerDefense$drawBackground = A2(
 			$elm$svg$Svg$Attributes$fill('#ECDCB8')
 		]),
 	_List_Nil);
-var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm$svg$Svg$g = $elm$svg$Svg$trustedNode('g');
 var $author$project$Bots$getImageLink = function (botType) {
 	if (botType.$ === 'Default') {
@@ -7089,7 +7162,6 @@ var $elm$svg$Svg$Events$onMouseOver = function (msg) {
 };
 var $author$project$TowerDefense$drawRect = function (_v0) {
 	var position = _v0.position;
-	var color = _v0.color;
 	var opacity = _v0.opacity;
 	return A2(
 		$elm$svg$Svg$rect,
@@ -7111,7 +7183,6 @@ var $author$project$TowerDefense$drawRect = function (_v0) {
 				$elm$core$String$fromInt($author$project$Points$elementSize)),
 				$elm$svg$Svg$Attributes$height(
 				$elm$core$String$fromInt($author$project$Points$elementSize)),
-				$elm$svg$Svg$Attributes$fill(color),
 				$elm$svg$Svg$Attributes$fillOpacity(
 				$elm$core$String$fromFloat(opacity))
 			]),
@@ -7223,11 +7294,11 @@ var $author$project$Points$toPixelPoint = function (p) {
 			$author$project$Points$getY(p)));
 };
 var $author$project$Towers$updateColor = function (health) {
-	return (_Utils_cmp(health, $author$project$Towers$healthPoints * 0.3) < 0) ? 'red' : ((_Utils_cmp(health, $author$project$Towers$healthPoints * 0.6) < 0) ? 'yellow' : 'green');
+	return (_Utils_cmp(health, $author$project$Towers$damage * 0.3) < 0) ? 'red' : ((_Utils_cmp(health, $author$project$Towers$damage * 0.6) < 0) ? 'yellow' : 'green');
 };
 var $author$project$TowerDefense$drawTower = function (_v0) {
 	var position = _v0.position;
-	var health = _v0.health;
+	var damage = _v0.damage;
 	var attackPoint = _v0.attackPoint;
 	return A2(
 		$elm$svg$Svg$g,
@@ -7299,7 +7370,7 @@ var $author$project$TowerDefense$drawTower = function (_v0) {
 										$elm$svg$Svg$Attributes$r(
 										$elm$core$String$fromFloat($author$project$Points$elementSize * 0.08)),
 										$elm$svg$Svg$Attributes$fill(
-										$author$project$Towers$updateColor(health))
+										$author$project$Towers$updateColor(damage))
 									]),
 								_List_Nil)
 							]))
@@ -7310,7 +7381,6 @@ var $author$project$TowerDefense$pitchToSvg = function (_v0) {
 	var towers = _v0.towers;
 	var bots = _v0.bots;
 	var selection = _v0.selection;
-	var preSelection = _v0.preSelection;
 	return A2(
 		$elm$core$List$cons,
 		$author$project$TowerDefense$drawBackground,
@@ -7327,14 +7397,13 @@ var $author$project$TowerDefense$pitchToSvg = function (_v0) {
 					A2($elm$core$List$map, $author$project$TowerDefense$drawBot, bots),
 					A2($elm$core$List$map, $author$project$TowerDefense$drawRect, selectionLayer)))));
 };
-var $elm$html$Html$p = _VirtualDom_node('p');
-var $author$project$TowerDefense$setMessage = function (state) {
+var $author$project$TowerDefense$Start = {$: 'Start'};
+var $elm$html$Html$b = _VirtualDom_node('b');
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
+var $author$project$TowerDefense$setMessage = function (_v0) {
+	var state = _v0.state;
+	var score = _v0.score;
 	switch (state.$) {
-		case 'Running':
-			return _List_fromArray(
-				[
-					$elm$html$Html$text('')
-				]);
 		case 'Lost':
 			return _List_fromArray(
 				[
@@ -7342,7 +7411,6 @@ var $author$project$TowerDefense$setMessage = function (state) {
 					$elm$html$Html$p,
 					_List_fromArray(
 						[
-							A2($elm$html$Html$Attributes$style, 'text-align', 'center'),
 							A2($elm$html$Html$Attributes$style, 'font-size', '10em')
 						]),
 					_List_fromArray(
@@ -7351,40 +7419,105 @@ var $author$project$TowerDefense$setMessage = function (state) {
 						])),
 					A2(
 					$elm$html$Html$p,
+					_List_Nil,
 					_List_fromArray(
 						[
-							A2($elm$html$Html$Attributes$style, 'text-align', 'center')
-						]),
+							$elm$html$Html$text(
+							'Score: ' + $elm$core$String$fromInt(score))
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
 					_List_fromArray(
 						[
 							$elm$html$Html$text('Reload (Press F5) to play again')
 						]))
 				]);
-		default:
+		case 'Paused':
 			return _List_fromArray(
 				[
 					A2(
 					$elm$html$Html$p,
 					_List_fromArray(
 						[
-							A2($elm$html$Html$Attributes$style, 'color', 'grey'),
-							A2($elm$html$Html$Attributes$style, 'text-align', 'center'),
-							A2($elm$html$Html$Attributes$style, 'font-size', '10em')
+							A2($elm$html$Html$Attributes$style, 'font-size', '8em')
 						]),
 					_List_fromArray(
 						[
-							$elm$html$Html$text('Paused')
+							$elm$html$Html$text('Pause')
 						])),
 					A2(
 					$elm$html$Html$p,
+					_List_Nil,
 					_List_fromArray(
 						[
-							A2($elm$html$Html$Attributes$style, 'text-align', 'center')
-						]),
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Click \"Start\" or press space when you\'re ready')
+							$elm$html$Html$text('You can still optimize your defense. Click \"Start\" or press space when you\'re ready to continue.')
 						]))
+				]);
+		case 'Prepare':
+			var help = state.a;
+			return help ? _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('How to play')
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('This game based on classic tower defense. Attackers spawn in the middle of the left side and try to get to the right. If a attacker reaches the right side you loose a health point. You loose the game when no health points are left.')
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('You can click anywhere on the pitch and select an action on the upper right or on your keyboard '),
+							A2(
+							$elm$html$Html$b,
+							_List_Nil,
+							_List_fromArray(
+								[
+									$elm$html$Html$text('press Q to build, W to repair and E to destroy a tower.')
+								]))
+						])),
+					$elm$html$Html$text('Attackers can\'t move through towers, they have to dodge them. So you can use towers as barricades to slow down the attack.'),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('A tower does less damage the more it is used. On the color indicator on the tower you can see you much a tower was used. You can restore the damage by repairing it. When a tower fall down to zero damage it will be destroyed automatically. ')
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$button,
+							_List_fromArray(
+								[
+									$elm$html$Html$Events$onClick($author$project$TowerDefense$Start)
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text('Ok. I\'m ready to play.')
+								]))
+						]))
+				]) : _List_fromArray(
+				[
+					$elm$html$Html$text('')
+				]);
+		default:
+			return _List_fromArray(
+				[
+					$elm$html$Html$text('')
 				]);
 	}
 };
@@ -7399,7 +7532,9 @@ var $author$project$TowerDefense$view = function (model) {
 				A2($elm$html$Html$Attributes$style, 'display', 'grid'),
 				A2($elm$html$Html$Attributes$style, 'grid-template-columns', '1fr 15fr 1fr'),
 				A2($elm$html$Html$Attributes$style, 'grid-template-rows', '1fr 25fr 1fr'),
-				A2($elm$html$Html$Attributes$style, 'height', '100%')
+				A2($elm$html$Html$Attributes$style, 'height', '100%'),
+				A2($elm$html$Html$Attributes$style, 'color', 'white'),
+				A2($elm$html$Html$Attributes$style, 'font-family', '\"Trebuchet MS\", Helvetica, sans-serif')
 			]),
 		_List_fromArray(
 			[
@@ -7433,6 +7568,17 @@ var $author$project$TowerDefense$view = function (model) {
 					]),
 				_List_fromArray(
 					[
+						A2(
+						$elm$html$Html$p,
+						_List_fromArray(
+							[
+								A2($elm$html$Html$Attributes$style, 'text-align', 'center')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text(
+								'Score: ' + $elm$core$String$fromInt(model.score))
+							])),
 						A5(
 						$author$project$TowerDefense$drawImageWithText,
 						'health.png',
@@ -7449,6 +7595,16 @@ var $author$project$TowerDefense$view = function (model) {
 						A2($elm$html$Html$Attributes$style, 'grid-row', '2 / 3'),
 						A2($elm$html$Html$Attributes$style, 'place-self', 'center')
 					]),
+				A2($author$project$TowerDefense$getTimerText, model.state, model.time)),
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'grid-column', '1 / 2'),
+						A2($elm$html$Html$Attributes$style, 'grid-row', '2 / 3'),
+						A2($elm$html$Html$Attributes$style, 'align-self', 'end'),
+						A2($elm$html$Html$Attributes$style, 'justify-self', 'center')
+					]),
 				_List_fromArray(
 					[
 						A2(
@@ -7459,7 +7615,8 @@ var $author$project$TowerDefense$view = function (model) {
 							]),
 						_List_fromArray(
 							[
-								$elm$html$Html$text('Start')
+								$elm$html$Html$text(
+								$author$project$TowerDefense$getPauseButtonText(model.state))
 							]))
 					])),
 				A2(
@@ -7494,9 +7651,12 @@ var $author$project$TowerDefense$view = function (model) {
 					[
 						A2($elm$html$Html$Attributes$style, 'grid-column', '2 / 3'),
 						A2($elm$html$Html$Attributes$style, 'grid-row', '2 / 3'),
-						A2($elm$html$Html$Attributes$style, 'place-self', 'center')
+						A2($elm$html$Html$Attributes$style, 'place-self', 'center'),
+						A2($elm$html$Html$Attributes$style, 'color', 'black'),
+						A2($elm$html$Html$Attributes$style, 'width', '60%'),
+						A2($elm$html$Html$Attributes$style, 'text-align', 'center')
 					]),
-				$author$project$TowerDefense$setMessage(model.state)),
+				$author$project$TowerDefense$setMessage(model)),
 				A2(
 				$elm$html$Html$div,
 				_List_fromArray(

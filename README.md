@@ -7,3 +7,11 @@ Die Angreifer erscheinen mittig auf der linken Seite des Schlachtfeldes und werd
 2. Klicke rechts oben auf die Schaltfläche zum Erstellen eines Turmes oder drücke **Q** auf deiner Tastatur.
 3. Möchtest Du den Turm reparieren, wähle diesen aus und klicke auf *Repair* oder drücke **W**.
 4. Um den Turm abzureißen, wähle ihn aus und klicke auf *Destroy* oder drücke **E**.
+Ein Turm verursacht nach dem Bau Schaden an Angreifern in der Nähe. Mit steigender Nutzungsdauer nutzt der Turm sich jedoch ab und verliert an Schaden. Du erkennst die Stärke der Abnutzung an dem farbigen Indikator auf dem Turm. Ist ein Turm vollständig abgenutzt und verursacht also gar keinen Schaden mehr, zerstört dieser sich selbst. Verhindere dies indem Du den Turm rechtzeitig reparierst. Das Bauen und Reparieren von Türmen kostet Dich Geld. Du erhälst Geld für jeden getöten Angreifer und beim Abriss von Türmen.
+
+Sollte es Dir einmal zu schnell gehen, kannst du das Spiel jederzeit pausieren und weiterhin Deine Verteidigung optimieren. Deine Türme greifen beim pausierten Spiel natürlich nicht mehr an, aber auch die Angreifer legen eine Pause ein.
+
+## Struktur und Nutzung der Quelldateien
+Im Ordner *src* befinden sich die elm-Dateien bestehend aus den Main-Module *TowerDefense.elm* und den weiteren Modulen *Points.elm*, *Bots.elm*, *Towers.elm* und *Lists.elm*. Außerdem liegt hier eine bereits erstellte HTML-Datei zum Ausführen des Spiels. Im Ordner *src/Graphics* finden sich alle im Spiel verwendeten Grafiken.
+
+Um das Spiel aus den Quelldateien neu zu erstellen, muss im Root-Verzeichnis der Befehl 'elm make src/TowerDefense.elm' ausgeführt werden. Um das mit die Befehl erstellte Dokument *index.html* korrekt darzustellen, muss sich der Ordner mit den Grafiken im selben Verzeichnis befinden. *index.html* muss vor dem Ausführen also ggf. verschoben werden.
