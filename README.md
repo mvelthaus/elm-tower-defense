@@ -7,7 +7,8 @@ Die Angreifer erscheinen mittig auf der linken Seite des Schlachtfeldes und werd
 2. Klicke rechts oben auf die Schaltfläche zum Erstellen eines Turmes oder drücke **Q** auf deiner Tastatur.
 3. Möchtest Du den Turm reparieren, wähle diesen aus und klicke auf *Repair* oder drücke **W**.
 4. Um den Turm abzureißen, wähle ihn aus und klicke auf *Destroy* oder drücke **E**.
-Ein Turm verursacht nach dem Bau Schaden an Angreifern in der Nähe. Mit steigender Nutzungsdauer nutzt der Turm sich jedoch ab und verliert an Schaden. Du erkennst die Stärke der Abnutzung an dem farbigen Indikator auf dem Turm. Ist ein Turm vollständig abgenutzt und verursacht also gar keinen Schaden mehr, zerstört dieser sich selbst. Verhindere dies indem Du den Turm rechtzeitig reparierst. Das Bauen und Reparieren von Türmen kostet Dich Geld. Du erhälst Geld für jeden getöten Angreifer und beim Abriss von Türmen. Wenn Du einen Turm abreißt erhälst Du jedoch nur die Hälfte des Baupreises zurück, also überlege es Dir vorher gut!
+
+Ein Turm verursacht nach dem Bau Schaden an Angreifern in der Nähe. Mit steigender Nutzungsdauer nutzt der Turm sich jedoch ab und verliert an Schaden. Du erkennst die Stärke der Abnutzung an dem farbigen Indikator auf dem Turm. Ist ein Turm vollständig abgenutzt, verursacht also gar keinen Schaden mehr, zerstört dieser sich selbst. Verhindere dies indem Du den Turm rechtzeitig reparierst. Das Bauen und Reparieren von Türmen kostet Dich Geld. Du erhälst Geld für jeden getöten Angreifer und beim Abriss von Türmen. Wenn Du einen Turm abreißt erhälst Du jedoch nur die Hälfte des Baupreises zurück, also überlege es Dir vorher gut!
 
 Sollte es Dir einmal zu schnell gehen, kannst du das Spiel jederzeit pausieren und weiterhin Deine Verteidigung optimieren. Deine Türme greifen beim pausierten Spiel natürlich nicht mehr an, aber auch die Angreifer legen eine Pause ein.
 
