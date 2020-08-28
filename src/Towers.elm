@@ -1,19 +1,21 @@
-module Towers exposing (..)
+-- Author: Mirko Velthaus
+
+
+module Towers exposing (Tower, buildCost, repairCost, create, healthPointsPercent, range, calculateDamage, delete, repair, updateColor, getRotation, resetAttackPoint, attackSpeed)
 
 import Points exposing (Point, elementSize, getX, getY)
 
 
 type alias Tower =
     { position : Point
-    , health : Float
-    , color : String
+    , damage : Float
     , attackPoint : Maybe Point
     }
 
 
-color : String
-color =
-    "green"
+-- color : String
+-- color =
+--     "green"
 
 
 buildCost : Int
@@ -43,7 +45,21 @@ range =
 
 damage : Float
 damage =
-    0.1
+    1
+
+
+damageDecrease : Float
+damageDecrease =
+    0.002
+
+
+calculateDamage : Float -> Float
+calculateDamage dmg =
+    if dmg <= 0 then
+        0
+
+    else
+        dmg - damageDecrease
 
 
 attackSpeed : Float
@@ -53,7 +69,7 @@ attackSpeed =
 
 create : Point -> Tower
 create p =
-    { position = p, health = healthPoints, color = color, attackPoint = Nothing }
+    { position = p, damage = damage, attackPoint = Nothing }
 
 
 repair : Point -> List Tower -> List Tower
@@ -61,13 +77,14 @@ repair p towers =
     case towers of
         x :: xs ->
             if p == x.position then
-                { x | health = healthPoints } :: repair p xs
+                { x | damage = damage } :: repair p xs
 
             else
                 x :: repair p xs
 
         [] ->
             []
+
 
 delete : Point -> List Tower -> List Tower
 delete p towers =
@@ -82,12 +99,13 @@ delete p towers =
         [] ->
             []
 
+
 updateColor : Float -> String
 updateColor health =
-    if health < healthPoints * 0.3 then
+    if health < damage * 0.3 then
         "red"
 
-    else if health < healthPoints * 0.6 then
+    else if health < damage * 0.6 then
         "yellow"
 
     else
@@ -98,7 +116,7 @@ getRotation : Maybe Point -> Point -> String
 getRotation attackPoint pos =
     case attackPoint of
         Just p ->
-            "rotate(" ++ String.fromFloat (90+toDegrees (atan2 (toFloat (getY p - (getY pos+elementSize//2))) (toFloat (getX p - (getX pos+elementSize//2))))) ++ "," ++ getRotationPoint pos ++ ")"
+            "rotate(" ++ String.fromFloat (90 + toDegrees (atan2 (toFloat (getY p - (getY pos + elementSize // 2))) (toFloat (getX p - (getX pos + elementSize // 2))))) ++ "," ++ getRotationPoint pos ++ ")"
 
         Nothing ->
             "rotate(270," ++ getRotationPoint pos ++ ")"
@@ -112,3 +130,8 @@ toDegrees r =
 getRotationPoint : Point -> String
 getRotationPoint pos =
     String.fromInt (getX pos + elementSize // 2) ++ "," ++ String.fromInt (getY pos + elementSize // 2)
+
+
+resetAttackPoint : List Tower -> List Tower
+resetAttackPoint towers =
+    List.map (\p -> { p | attackPoint = Nothing }) towers

@@ -1,7 +1,9 @@
-module Bots exposing (..)
+-- Author: Mirko Velthaus
 
-import Points exposing (Point, getX, getY)
-import Points exposing (elementSize)
+
+module Bots exposing (Bot, BotType(..), Direction(..), botTypeGenerator, createBot, directionGenerator, getImageLink, getRoation, healthPointsPercent, move, size, spawnRate, worth)
+
+import Points exposing (Point(..), elementSize, getX, getY)
 import Random
 import String
 
@@ -15,7 +17,8 @@ type alias Bot =
     , botType : BotType
     }
 
-type BotType 
+
+type BotType
     = Default
     | Boss
 
@@ -26,25 +29,24 @@ type Direction
     | Down
     | Stop
 
+
 size : Float
 size =
-    toFloat elementSize {- * 0.8 -}
+    toFloat elementSize
 
-refreshRate : Float
-refreshRate =
-    30
+
+
+-- time that passes between bot spawns calculated on the number of bots already spawned; minimum = 200 ms
 
 
 spawnRate : Int -> Float
-spawnRate spawned=
-    if spawned < 3 then
-        5000
-    else if spawned < 8 then
-        4000
-    else if spawned < 10 then
-        3000
+spawnRate spawned =
+    if (5 / (1 + toFloat (spawned // 7)) * 2000) > 200 then
+        5 / (1 + toFloat (spawned // 7)) * 2000
+
     else
-        2000
+        200
+
 
 moveStep : Int
 moveStep =
@@ -53,28 +55,27 @@ moveStep =
 
 healthPoints : Float
 healthPoints =
-    10
+    100
+
 
 worth : Int
 worth =
-    3
+    5
+
 
 directionGenerator : Random.Generator Direction
 directionGenerator =
-    Random.uniform Up [Down]
+    Random.uniform Up [ Down ]
+
 
 botTypeGenerator : Random.Generator BotType
 botTypeGenerator =
-    Random.weighted (80, Default) [(20, Boss)]
+    Random.weighted ( 65, Default ) [ ( 35, Boss ) ]
 
 
 healthPointsPercent : BotType -> Float -> Float
 healthPointsPercent botType h =
     h / getHealth botType
-
-
-type alias MoveArea =
-    List Point
 
 
 createBot : Point -> BotType -> Bot
@@ -86,42 +87,49 @@ move : Bot -> Bot
 move bot =
     case bot.direction of
         Right ->
-            { bot | position = Points.Point (getX bot.position + moveStep) (getY bot.position) }
+            { bot | position = Point (getX bot.position + moveStep) (getY bot.position) }
 
         Up ->
-            { bot | position = Points.Point (getX bot.position) (getY bot.position - moveStep) }
+            { bot | position = Point (getX bot.position) (getY bot.position - moveStep) }
 
         Down ->
-            { bot | position = Points.Point (getX bot.position) (getY bot.position + moveStep) }
+            { bot | position = Point (getX bot.position) (getY bot.position + moveStep) }
 
         Stop ->
             bot
+
 
 getImageLink : BotType -> String
 getImageLink botType =
     case botType of
         Default ->
             "Graphics/default_bot.png"
+
         Boss ->
             "Graphics/boss_bot.png"
+
 
 getHealth : BotType -> Float
 getHealth botType =
     case botType of
         Default ->
             healthPoints
+
         Boss ->
             healthPoints * 2
 
+
 getRoation : Direction -> Point -> String
-getRoation direct pos=
+getRoation direct pos =
     case direct of
         Right ->
             "rotate(0)"
+
         Up ->
-            "rotate(-90,"++String.fromInt (getX pos)++","++String.fromInt (getY pos)++")"
+            "rotate(-90," ++ String.fromInt (getX pos) ++ "," ++ String.fromInt (getY pos) ++ ")"
+
         Down ->
-            "rotate(90,"++String.fromInt (getX pos)++","++String.fromInt (getY pos)++")"
+            "rotate(90," ++ String.fromInt (getX pos) ++ "," ++ String.fromInt (getY pos) ++ ")"
+
         Stop ->
             "rotate(0)"
-        

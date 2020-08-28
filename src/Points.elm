@@ -1,4 +1,4 @@
-module Points exposing (..)
+module Points exposing (Point(..), elementSize, getX, getY, isInside, isBetween, toPixelPoint, toPixels)
 
 type Point
     = Point Int Int
