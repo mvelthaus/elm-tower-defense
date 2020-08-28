@@ -15,3 +15,8 @@ Sollte es Dir einmal zu schnell gehen, kannst du das Spiel jederzeit pausieren u
 Im Ordner *src* befinden sich die elm-Dateien bestehend aus den Main-Module *TowerDefense.elm* und den weiteren Modulen *Points.elm*, *Bots.elm*, *Towers.elm* und *Lists.elm*. Außerdem liegt hier eine bereits erstellte HTML-Datei zum Ausführen des Spiels. Im Ordner *src/Graphics* finden sich alle im Spiel verwendeten Grafiken.
 
 Um das Spiel aus den Quelldateien neu zu erstellen, muss im Root-Verzeichnis der Befehl `elm make src/TowerDefense.elm` ausgeführt werden. Um das mit die Befehl erstellte Dokument *index.html* korrekt darzustellen, muss sich der Ordner mit den Grafiken im selben Verzeichnis befinden. *index.html* muss vor dem Ausführen also ggf. verschoben werden.
+
+## Grafiken
+Die im Spiel verwendeten Grafiken wurden nicht vom Entwickler erstellt, sondern stammen aus folgenden Quellen:
+[Sprites für Angreifer, Buttons und Geld; Farbschema](https://opengameart.org/content/tower-defense-300-tilessprites)
+[Symbol für Lebenspunkte](https://www.pngfuel.com/free-png/crffx)
