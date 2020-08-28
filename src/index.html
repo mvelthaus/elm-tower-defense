@@ -5253,10 +5253,7 @@ var $author$project$TowerDefense$buildRow = F2(
 	function (column, row) {
 		return (column >= 0) ? A2(
 			$elm$core$List$cons,
-			{
-				opacity: 0.0,
-				position: A2($author$project$Points$Point, column, row)
-			},
+			A2($author$project$Points$Point, column, row),
 			A2($author$project$TowerDefense$buildRow, column - 1, row)) : _List_Nil;
 	});
 var $author$project$TowerDefense$buildPitch = F2(
@@ -5282,14 +5279,13 @@ var $author$project$TowerDefense$initialModel = _Utils_Tuple2(
 	{
 		bots: _List_Nil,
 		botsSpawned: 0,
-		cash: 80,
+		cash: 50,
 		health: 10,
-		preSelection: A2($author$project$Points$Point, 0, 0),
 		score: 0,
 		selection: A2($author$project$Points$Point, ($author$project$TowerDefense$widthInPixels / 2) | 0, ($author$project$TowerDefense$heightInPixels / 2) | 0),
 		selectionLayer: A2($author$project$TowerDefense$buildPitch, $author$project$TowerDefense$width, $author$project$TowerDefense$height),
 		state: $author$project$TowerDefense$Prepare(true),
-		time: 5,
+		time: 10,
 		towers: _List_Nil
 	},
 	$elm$core$Platform$Cmd$none);
@@ -6177,7 +6173,7 @@ var $author$project$Towers$repair = F2(
 			return _List_Nil;
 		}
 	});
-var $author$project$Towers$repairCost = 8;
+var $author$project$Towers$repairCost = 5;
 var $author$project$TowerDefense$updateAction = F2(
 	function (towerAction, model) {
 		switch (towerAction.$) {
@@ -7160,9 +7156,7 @@ var $elm$svg$Svg$Events$onMouseOver = function (msg) {
 		'mouseover',
 		$elm$json$Json$Decode$succeed(msg));
 };
-var $author$project$TowerDefense$drawRect = function (_v0) {
-	var position = _v0.position;
-	var opacity = _v0.opacity;
+var $author$project$TowerDefense$drawRect = function (position) {
 	return A2(
 		$elm$svg$Svg$rect,
 		_List_fromArray(
@@ -7183,8 +7177,7 @@ var $author$project$TowerDefense$drawRect = function (_v0) {
 				$elm$core$String$fromInt($author$project$Points$elementSize)),
 				$elm$svg$Svg$Attributes$height(
 				$elm$core$String$fromInt($author$project$Points$elementSize)),
-				$elm$svg$Svg$Attributes$fillOpacity(
-				$elm$core$String$fromFloat(opacity))
+				$elm$svg$Svg$Attributes$fillOpacity('0.0')
 			]),
 		_List_Nil);
 };
@@ -7193,8 +7186,7 @@ var $elm$svg$Svg$Attributes$ry = _VirtualDom_attribute('ry');
 var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
 var $elm$svg$Svg$Attributes$strokeWidth = _VirtualDom_attribute('stroke-width');
 var $author$project$TowerDefense$drawSelectionBorder = F3(
-	function (p, _v0, color) {
-		var position = _v0.position;
+	function (p, position, color) {
 		return _Utils_eq(p, position) ? A2(
 			$elm$svg$Svg$rect,
 			_List_fromArray(

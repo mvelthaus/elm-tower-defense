@@ -3,7 +3,7 @@
 
 module TowerDefense exposing (main)
 
-import Bots exposing (Bot, Direction(..), BotType(..), createBot, move)
+import Bots exposing (Bot, BotType(..), Direction(..), createBot, move)
 import Browser
 import Browser.Events
 import Html exposing (Html, div, p)
@@ -62,23 +62,18 @@ type State
 
 
 type alias Model =
-    { selectionLayer : List PitchElement
+    { selectionLayer : List Point
     , towers : List Tower
     , cash : Int
     , health : Int
     , bots : List Bots.Bot
     , state : State
     , selection : Point
-    , preSelection : Point
     , botsSpawned : Int
     , time : Float
     , score : Int
     }
 
-type alias PitchElement =
-    { position : Point
-    , opacity : Float
-    }
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
@@ -89,9 +84,8 @@ initialModel =
       , bots = []
       , state = Prepare True
       , selection = Point (widthInPixels // 2) (heightInPixels // 2)
-      , preSelection = Point 0 0
       , botsSpawned = 0
-      , time = 5
+      , time = 10
       , score = 0
       }
     , Cmd.none
@@ -102,7 +96,7 @@ initialModel =
 -- PITCH
 
 
-buildPitch : Int -> Int -> List PitchElement
+buildPitch : Int -> Int -> List Point
 buildPitch w h =
     let
         buildRows row =
@@ -115,10 +109,10 @@ buildPitch w h =
     buildRows h
 
 
-buildRow : Int -> Int -> List PitchElement
+buildRow : Int -> Int -> List Point
 buildRow column row =
     if column >= 0 then
-        { position = Point column row, opacity = 0.0 } :: buildRow (column - 1) row
+        Point column row :: buildRow (column - 1) row
 
     else
         []
@@ -147,9 +141,11 @@ heightInPixels =
 
 -- MOVEMENT
 
+
 spawnPoint : Point
 spawnPoint =
     Point 0 (height * elementSize // 2)
+
 
 moveBots : List Bot -> List Tower -> Direction -> List Bot
 moveBots bots towers direct =
@@ -466,8 +462,8 @@ drawBackground =
         []
 
 
-drawRect : PitchElement -> Svg Msg
-drawRect { position, opacity } =
+drawRect : Point -> Svg Msg
+drawRect position =
     Svg.rect
         [ Svg.Events.onClick (Click position)
         , Svg.Events.onMouseOut (MouseOut position)
@@ -476,7 +472,7 @@ drawRect { position, opacity } =
         , y (String.fromInt (getY position * elementSize))
         , Svg.Attributes.width (String.fromInt elementSize)
         , Svg.Attributes.height (String.fromInt elementSize)
-        , fillOpacity (fromFloat opacity)
+        , fillOpacity "0.0"
         ]
         []
 
@@ -536,8 +532,8 @@ drawAttackLine towerPos attackPos =
             ]
 
 
-drawSelectionBorder : Point -> PitchElement -> String -> Svg Msg
-drawSelectionBorder p { position } color =
+drawSelectionBorder : Point -> Point -> String -> Svg Msg
+drawSelectionBorder p position color =
     if p == position then
         Svg.rect
             [ x (fromInt (toPixels (getX position)))

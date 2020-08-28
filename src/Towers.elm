@@ -1,7 +1,7 @@
 -- Author: Mirko Velthaus
 
 
-module Towers exposing (Tower, buildCost, repairCost, create, healthPointsPercent, range, calculateDamage, delete, repair, updateColor, getRotation, resetAttackPoint, attackSpeed)
+module Towers exposing (Tower, attackSpeed, buildCost, calculateDamage, create, delete, getRotation, healthPointsPercent, range, repair, repairCost, resetAttackPoint, updateColor)
 
 import Points exposing (Point, elementSize, getX, getY)
 
@@ -13,11 +13,6 @@ type alias Tower =
     }
 
 
--- color : String
--- color =
---     "green"
-
-
 buildCost : Int
 buildCost =
     10
@@ -25,7 +20,7 @@ buildCost =
 
 repairCost : Int
 repairCost =
-    8
+    5
 
 
 healthPoints : Float
